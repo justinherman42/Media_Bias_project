@@ -1,0 +1,184 @@
+---
+title: "polling data"
+author: "Justin Herman"
+output:
+  html_document:
+    theme: "simplex"
+    highlight: 'pygments'
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+<style>h1{text-transform: capitalize}</style>
+<style>h2{text-transform: capitalize}</style>
+<style>h3{text-transform: capitalize}</style>
+<style>p:first-letter {text-transform: capitalize}</style>
+<style>li:first-letter {text-transform: capitalize}</style>
+
+
+
+
+# Overview
+
+Recent news reports [dailykos](https://www.dailykos.com/stories/2019/4/23/1852590/-Roughly-20-of-Bernie-Sanders-voters-would-rather-vote-for-Trump-if-Warren-Harris-or-Buttigieg-win) and [forbes](https://www.forbes.com/sites/michaeldurkheimer/2019/04/17/5-weird-items-in-the-new-bernie-buttigieg-poll/#2b74d28b7ddd) are using polling data from April's [Emerson](https://emersonpolling.reportablenews.com/pr/april-national-poll-bernie-takes-lead-for-democratic-nomination-mayor-pete-on-the-move) poll to claim that Sanders supporters are choosing Donald trump over other Democratic candidates.  In particular, these articles are focusing on Sanders voters voting for Trump over Elizabeth Warren (26% of Sanders voters prefer Trump to Warren)
+
+The poll identifies who you support in the Primary(first choice), it then asks who you would vote for in a Trump versus every other candidate scenario. 26% of Sanders voters voting against Warren, is a very strange polling outcome. Warren and Sanders are likely the two closest to each other in terms of ideology[add link](). Such data could be indicative of sexism, or some sort of Bernie bro phenomenon. However I felt as though this polling data needed some exploration before making such claims.  Emerson has conducted several polls asking similar questions, and I have read in the polls for Feb,March and April.  My plan is to find out how the distributions of these Trump versus other candidates vary across these surveys and across different first choices.
+
+
+
+## Is the data trustworthy
++ Here's my first issue with the polling data.  Below I print a df of all 356 people identified in the April survey as democratic primary voters. All 356 gave answers to every single question on the survey.    
+
+
+```{r,echo=FALSE,message=FALSE,warning=FALSE}
+
+## load in libraries 
+library(xlsx)
+library(tidyverse)
+library(kableExtra)
+library(gridExtra)
+
+## read in data and make changes as neccessary
+April <- read.csv('April1.csv',stringsAsFactors=FALSE)
+
+## get rid of %
+April <- as.data.frame(lapply(April, gsub, pattern='\\%', replacement=''))
+indx <- sapply(April, is.factor)
+
+## convert factor to numeric
+April[,3:39] <- lapply(April[3:39], function(x) as.numeric(as.character(x)))
+April <- April[3:24,]
+
+## Temp rename some columns for kable printout
+colnames(April)[c(2,7,13,19,25,31)] <- c("Candidate","Vs biden","Vs beto", "Vs bernie","Vs kamala","Vs Warren")
+kable(April[,c(2,7,13,19,25,31)],digits =2,'markdown',booktabs =T, caption = "Total respondents Trump vs Candidates")
+
+## rename columns permanently
+colnames(April)[c(2,3,4,5,6,9,10,11,12,15,16,17,18,21,22,23,24,27,28,29,30,33,34,35,36)] <- 
+    c("candidate", "TrumpvoteVsbiden","Trump % vs biden ", "Biden","Biden %",
+      "TrumpvoteVsbeto","Trump % vs beto ", "Beto","Beto %",
+      "TrumpvoteVsbernie","Trump % vs Bernie ", "Bernie","Bernie %",
+      "TrumpvoteVsHarris","Trump % vs Harris ", "Harris","Harris %",
+      "TrumpvoteVsWarren","Trump % vs Warren ", "Warren","Warren %",
+      "TrumpvoteVsButt","Trump % vs Butt ", "Butt","Butt %")
+
+
+
+
+
+## get rid of qeustion col
+April <- April[,-1] 
+## convert candidate column to character
+April[,1] <- as.character(April[,1] )
+
+#kable(April[1:22,c(2,7,13,19,25,31)],digits =2,'markdown',booktabs =T, caption = "Total respondents Trump vs Candidates")
+#kable(April,digits =2,'markdown',booktabs =T, caption = "Total respondents Trump vs Candidates")
+
+#Make rownames candidates names
+rownames(April) <- April$X
+
+```
+
++  This seems very strange to me.  
+    + The goal of the survey is clearly to get nation polling averages. I would think that the company would not discard incomplete survey data which at least showed national polling average choices, but it would appear they have discarded all incomplete observations. I have not looked through their methodology as of yet 
+    + Assuming no data misentry or manipulation, accepting only surveys in which individuals answer every question, throws some bias into the survey data. Most average voters, will not complete an entire survey on the election like this. Voters giving this much attention to all of these questions are not representative of average voters. However, Let's proceed with the analysis assuming the data is clean
+    
+## Get distributions of votes for Trump against democratic Opponents 
++ Below is bread and butter of what we are looking for from the April survey data
+```{r,echo=FALSE}
+
+## Build function to explore Trump success agaisnt opponents, by democratic candidate of choice
+get_dem_trump_vote <- function(candidate){
+    Trump_votes <- candidate[,c(1,3,9,15,21,27,33)]
+}
+
+
+## build candidates and join them in df
+biden<- get_dem_trump_vote(April[5,])
+bernie <- get_dem_trump_vote(April[3,])
+beto <- get_dem_trump_vote(April[1,])
+buttigieg <- get_dem_trump_vote(April[2,])
+kamala <- get_dem_trump_vote(April[6,])
+warren <- get_dem_trump_vote(April[4,])   
+candidates <-rbind(biden,bernie,beto,buttigieg,kamala,warren)
+kable(candidates,digits =2,'markdown',booktabs =T, caption = "Total respondents")
+
+
+
+```
+
+## Weird behavior in data 
+Democratic party voters are choosing Trump over their preferred democratic candidate
+
++ 10.3% of Biden voters would vote for Trump against Biden
++ 5% of Bernie voters would vote for Trump against Bernie
++ 9.3% of Beto voters would vote Trump versus Beto
++ 2.2% of Kamala voters would vote for Trump versus Kamala
++ 11.9% of Warren voters would vote for Trump against Warren
+
+This is really weird.  Biden warren and Beto voters who identify as having those candidates as their first choice, choose Trump over those candidates.  Having not looked at other polls, this behavior could be within norms, but none the less its strange and should be highlighted
+
+
+
+
+
+
+
+```{r,echo=FALSE}
+
+
+#kable(April[22,c(2,8,14,20,26)],digits =2,'markdown',booktabs =T, caption = "Total respondents")
+#sum(April[22,c(2,8,14,20,26)])/(356*5)
+
+```
+
++ **Overall 273 respondents said they would vote for Trump in one on one mathcups, out of a total of 1780, which comes out to 15.3%**
+
+
+```{r,echo=FALSE}
+#kable(April[3,c(2,8,14,20,26)],digits =2,'markdown',booktabs =T, caption = "Total respondents")
+
+
+
+biden_pct <- sum(April[5,c(2,8,14,20,26)])/(94*5)
+
+## Build function to print total votes by trump agaisnt Dem opponents, total potential votes, percent that voted for trump of 
+turn_coats <-function(candidate) {
+    
+   trump_votes <- sum(candidate[c(2,8,14,20,26)])
+   print(trump_votes)
+   print(sum(candidate[c(2,4)]))
+   print(sum(candidate[c(2,4)])*5)
+   my_percent <- sum(candidate[c(2,8,14,20,26)])/(candidate[6]*5)
+   print(my_percent)
+}
+
+# trump_percent <-function(candidate) {
+#     print(sum(candidate[c(2,4)]))
+#     print(sum(candidate[c(2,4)])*5)
+#     my_percent <- sum(candidate[c(2,8,14,20,26)])/(candidate[6]*5)
+#  
+# }
+## Commented out for markdown, ucntion prints total votes for trump, total potential votes for candidate, and percent vote for trump given all possible mathcups
+
+# turn_coats(April[5,])
+# turn_coats(April[4,])
+# turn_coats(April[1,])
+# turn_coats(April[6,])
+
+```
+
++ **Overall 84 Bernie supporters said they would vote for Trump in one on one mathcups, out of a total of 520 matchups, which comes out to 16.1%**
++ **Overall 54 Biden supporters said they would vote for Trump in one on one mathcups, out of a total of 425 matchups, which comes out to 12.7%**
++ **Overall 9 Warren supporters said they would vote for Trump in one on one mathcups, out of a total of 120 matchups, which comes out to 7.5%, which is odd given 12% warren voters said they would vote against Warren versus Trump.**
++ **Overall 14 Beto supporters said they would vote for Trump in one on one mathcups, out of a total of 145 matchups, which comes out to 9.6%**
++ **Overall 5 Kamela supporters said they would vote for Trump in one on one mathcups, out of a total of 140 matchups, which comes out to 3.7 %**
+
+### What does this Mean
+
+Looking at this data, it appears that overall, Bernie supporters are only slightly more likely to Vote for Trump, than the average of the dataset. However, Bernie supporters do make up twenty seven percent of the dataset.  Emerson has released two prior polls which [March](http://emersonpolling.com/2019/03/31/nevada-2020-biden-and-sanders-lead-democratic-primary-field-trump-looks-to-flip-the-silver-state-red/) and [FEB](http://emersonpolling.com/2019/02/23/bernie-takes-early-lead-in-new-hampshire-democratic-primary-potential-tight-us-senate-race-if-gov-sununu-takes-on-sen-shaheen/).  This data need to be cleaned and explored.  I am hopeful that doing so, will give us a bigger picture on how much sample size and other factors played into these distributions and outcomes.  Part 2 will explore these 2 datasets, and part 3 will attempt to bridge the gap and explore what we can learn from combinging our results form both parts together.    
+
+
