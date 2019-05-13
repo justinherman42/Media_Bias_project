@@ -1,0 +1,473 @@
+---
+title: "Looking into the Data For Progress Survey Data"
+author: "Justin Herman"
+date: "5/11/2019"
+output:
+  html_document:
+    theme: "simplex"
+    highlight: 'pygments'
+---
+
+
+
+<style>h1{text-transform: capitalize}</style>
+<style>h2{text-transform: capitalize}</style>
+<style>h3{text-transform: capitalize}</style>
+<style>p:first-letter {text-transform: capitalize}</style>
+<style>li:first-letter {text-transform: capitalize}</style>
+
+<style type="text/css">body{ /* Normal  */ font-size: 18px;}}</style>
+
+<p style="font-family: times, serif; font-size:24pt; font-style:italic">**Abstract**</p>
+
+Recently Data for progress published a report [here](https://www.dataforprogress.org/presidential-primary-memo?fbclid=IwAR3TUjfhQBNAFJe5pRuffbkNN1gqSgzQwcnu8EC8ChRwqqrtCUJkZ21dFPg) with an interesting new way of polling for the primaries.  Their intention appears to be that they wanted to provide some ranked based voting statistics, alongside a "Not Considering"" and "Considering candidate" statistic.  They asked voters over 40 questions dealing with voter demographics and voter choice. Specifically, they asked voters to check all candidates they would consider voting for, to rank all those candidates, and lastly to establish which candidates they would not consider voting for. The headline statistics that seem to be revealed from this were that Biden has 49% support level, Warren has a 40% support level, and Bernie has the highest "would not consider" percentage with 28%.  
+
+This is an interesting way to look at some of the lesser known candidates.  Would not consider for Tulsi(24%), Bill De Blasio(25%), and several lesser known candidates(Moulton, Bennet, Williamson, Gravel all over 20%) shows that while these candidates are at less than 5% of overall consideration, that this isn't necessarily a condition of candidates not being well known.  Then again, perhaps their lack of name recognition is what influences these numbers.  I did not attempt to explore this in the writeup, thought it was just an interesting thing to note.
+
+This writeup attempts to validate the data that was published.  I found it difficult to filter the data in a way that would produce the same results at the survey summary indicates.  This is strange, as clearly the survey data indicates that 465 survey observations were polled on their preferences for the democratic party. When filtering for these results (done below), statistics don't line up with the statistics presented in the report[here](http://filesforprogress.org/memos/dfp_presidential_primary_memo.pdf)  A mistake could have been made somewhere between time to publish and when the data was analyzed(or perhaps they were using something to further filter the data). The survey still provides some interesting information, below we will attempt to investigate some of the results.
+  
+
+
+```{r,echo=F,message=F,warning=F}
+rm(list=ls())
+library(tidyverse)
+library(kableExtra)
+library(gridExtra)
+library(ggplot2)
+library(cowplot)
+library(imager)
+library(stringr)
+library(bsselectR)
+df <- read.csv("dfp_omni_4.19_data.csv")
+
+```
+
+
+## Demographic data for our Survey
+
+
+```{r,echo=FALSE}
+
+exp_df <- read.csv("dfp_omni_4.19_data.csv")
+df <- read.csv("dfp_omni_4.19_data.csv")
+
+
+## who did they vote for 
+vote_2016 <- factor(df$presvote16post,
+levels = c(1,2,3,4,5,6,7),
+labels = c( 'Clinton','Trump','Johnson','Stein','Mcmulin',"Other","did not vote"))
+vote_2016_table <- round(table(vote_2016)/length(vote_2016)*100,1)
+df <- read.csv("dfp_omni_4.19_data.csv")
+
+## get age tables
+age <- factor(df$age5,
+levels = c(1,2,3,4,5),
+labels = c( '18-29','30-39','40-49','50-64','65+'))
+age_table <- round(table(age)/length(age)*100,1)
+df$age5 <- age
+
+
+## Change col names to reflect values
+names_for_candidates <- c('Joe Biden','Bernie Sanders','Kamala Harris','Beto O’Rourke','Cory Booker',
+'Amy Klobuchar','Elizabeth Warren','John Hickenlooper','Kirsten Gillibrand',
+ 'John Delaney','Julián Castro','Stacey Abrams','Tammy Baldwin',
+'Bill DeBlasio','Tulsi Gabbard','Pete Buttigieg','Jay Inslee','Tim Ryan',
+'Seth Moulton','Eric Swalwell','Andrew Yang','Marianne Williamson','Mike Gravel',
+ 'Steve Bullock','Michael Bennet','Wayne Messam','None')
+rank_names <- paste("rank",names_for_candidates,sep="_")
+rank_names <- rank_names[1:26]
+not_vote_for <- paste("not_support ",names_for_candidates,sep="_")
+activism_names <- c('Volunteer','attend_rally','called/wrote_official','attend_townhall','socialmedia_posts',"donation","other","none_of_above")
+colnames(df) <- c( colnames(df[1:6]),names_for_candidates,rank_names,not_vote_for,colnames(df[87:143]),activism_names,colnames(df[152:186]))
+
+
+## Change factor levels to yes/no function
+factorize_yes_no <- function(col){
+col<- factor(col,levels = c(1,2),labels = c( 'Yes','No'))
+}
+
+## insert new factor columns
+new_cols <- as.data.frame(sapply(df[,7:33],factorize_yes_no))
+df[,7:33] <- new_cols
+dislike_columns <- as.data.frame(sapply(df[,60:85],factorize_yes_no))
+df[,60:85] <- dislike_columns
+
+```
+
+
+
+```{r,echo=F}
+df$presvote16post <- vote_2016
+df_table <- df %>% 
+    group_by(age5,presvote16post) %>%
+    summarize(vote_count=n()) %>% 
+    group_by(age5) %>% 
+    mutate(total_count=sum(vote_count)) %>% 
+    mutate(percent_vote_by_age= vote_count/total_count*100) %>%
+    select(age5,presvote16post,vote_count,percent_vote_by_age)
+    
+clinton_vs_trump <- df_table %>% 
+    filter(presvote16post %in% c('Clinton','Trump'))
+not_clinton_vs_trump <- df_table %>% 
+    filter(presvote16post %in% c('Johnson','Stein',"did not vote"))
+#kable(clinton_vs_trump,digits = 2,'markdown', booktabs =T)
+```
+
+
+```{r,echo=F}
+#ggplot(clinton_vs_trump, aes(age5, percent_vote_by_age))+
+#    geom_bar( stat="identity",aes(fill =presvote16post ),position='dodge')
+
+#ggplot(df_table, aes(age5, percent_vote_by_age))+
+#    geom_bar( stat="identity",aes(fill =presvote16post ),position='dodge')
+```
+
+
+```{r,echo=F}
+#ggplot(not_clinton_vs_trump, aes(age5, percent_vote_by_age))+
+#    geom_bar( stat="identity",aes(fill =presvote16post ),position='dodge')
+```
+
+## Worries About Representativeness of Survey Data
++ According to several links including [one here](https://guides.libraries.psu.edu/post-election-2016/voter-turnout), 58% of the electorate voted in 2016
+
+<p style="font-family: times, serif; font-size:16pt; font-style:italic">**As seen below only 11.7 % of survey respondents did not vote in 2016 :**</p>
+```{r,echo=F}
+kable(vote_2016_table,digits = 2,'markdown', booktabs =T)
+```
+
+
+
+
+
+    
+<p style="font-family: times, serif; font-size:16pt; font-style:italic">**it's not just the overall vote breakdown, but the vote by age which of off here as well.  According to [censusdata](https://www.census.gov/newsroom/blogs/random-samplings/2017/05/voting_in_america.html) the voter breakdown for 2016 by age group should look like the below figure **</p>
+
+![Voter by age group](census.gif)
+
+
+<p style="font-family: times, serif; font-size:16pt; font-style:italic">**But the did not vote by agegroup in our dataset looks like:**</p>
+```{r,echo=F}
+df %>% 
+    group_by(age5,presvote16post) %>%
+    summarize(vote_count=n()) %>% 
+    group_by(age5) %>% 
+    mutate(total_count=sum(vote_count)) %>% 
+    mutate(percent_vote_by_age= vote_count/total_count*100) %>%
+    select(age5,presvote16post,vote_count,percent_vote_by_age) %>% 
+    filter(presvote16post=="did not vote") %>% 
+    kable(.,'markdown', booktabs =T)
+```
+
++ If we look at the gap in did not vote while it is true that younger votes clearly vote less(46.1%) than age 65 and older(70.1%), the underrepresentation of younger voters is much more significant in our data with 70% of younger voters saying they voted but nearly 96% of the elderly saying they voted.
+    
+    
+<p style="font-family: times, serif; font-size:16pt; font-style:italic">**Below Age demographics for our sample**</p>
+```{r,echo=F}
+kable(age_table,digits = 2,'markdown', booktabs =T)
+```
+
+
++ We add this to the fact that our survey data only polls 1/3 as many voters of age 18-29, there may be some bias toward older voters in the data that goes beyond typical demographics 
+
+```{r,echo=F}
+# df %>% 
+#     group_by(presvote16post) %>%
+#     summarize(vote_count=n()) %>% 
+# #    group_by() %>% 
+#     mutate(total_count=sum(vote_count)) %>% 
+#     mutate(percent_vote_by_age= vote_count/total_count*100) %>%
+#    # select(age5,presvote16post,vote_count,percent_vote_by_age) %>% 
+# #    filter(presvote16post=="did not vote") %>% 
+#     kable(.,'markdown', booktabs =T)
+```
+
+
+## Now for the data
+
+The dataset itself is a little confusing and the key provided by Data for progress doesn't line up completely with the dataset.  To check that my imputation methods are correct I lined up statistics that Dataforprogress published with my imputations. I am unsure what filter they used for democratic party voters as when i filter for democratic party voters there are slightly over 500 observations.  However, it was easy enough to match their results by dropping all indexes which weren’t polled by candidate preferences. Still, I don't get the same results they displayed in their writeup.  I created a pivot table in excel on the direct dataset, and I receive the same results as I will print out below. I think the fact that the dataset published by Dataforprogress doesn't line up with the graphics they display in their writeup, is pretty damaging towards the authenticity of the survey, but it's easy to make mistakes in data crunching.  Perhaps I made some mistakes below, I will proceed ignoring these issues
+
+
+<p style="font-family: times, serif; font-size:16pt; font-style:italic">**Support for candidates**</p>
+```{r,echo=F}
+## grab democratic party voters
+dem_voter_indexes <- which(!is.na(df$`Bernie Sanders`))
+democratic_party_voters <- df[dem_voter_indexes,]
+
+## make approve and dissaprove stats
+
+get_not_considering_pct <- function(col){
+    my_number <- round(100*(table(col)[2]/(table(col)[1]+table(col)[2])),2)
+    as.numeric(my_number)
+}
+get_considering_pct <- function(col){
+    my_number <- round(100*(table(col)[2]/(table(col)[1]+table(col)[2])),2)
+    as.numeric(my_number)
+}
+
+## build support
+dem_support<- lapply(democratic_party_voters[,c(7:13,15,17,18,22)],get_considering_pct)
+dem_support <- matrix(dem_support, ncol = 1)
+dem_support<- as.data.frame(dem_support)
+rownames(dem_support) <- names_for_candidates[c(1:7,9,11,12,16)]
+colnames(dem_support) <- c("would_support")
+#kable(dem_support,'markdown', booktabs =T)
+
+##build oppose
+dem_oppose<- lapply(democratic_party_voters[,c(60:66,68,70,71,75)],get_not_considering_pct)
+dem_oppose <- matrix(dem_oppose, ncol = 1)
+dem_oppose<- as.data.frame(dem_oppose)
+rownames(dem_oppose) <- names_for_candidates[c(1:7,9,11,12,16)]
+colnames(dem_oppose) <- c("would_not_support")
+#kable(dem_oppose,'markdown', booktabs =T)
+
+gg1 <- merge(dem_oppose,dem_support)
+#colnames(df)
+
+
+gg2<- as.data.frame(cbind(dem_support,dem_oppose))
+gg2 <- gg2[c(1,7,2,11,3,4,5,6,10,8,9),]
+kable(gg2,'markdown', booktabs =T)
+```
+
+![](dfp.gif)
+
+
+
+### Opposition to other candidates
++ Below I build out some tables based on some of the frontrunners(Biden,Bernie,Kamala,Booker,Warren,Beto,Klobuchar,Buttigieg)
++ I display how voters who said they would choose these candidates, said they wouldn't vote for otehr candidates
+    + Anti Biden,Bernie,Kamala, and Warren tables are built
+    + Voters selected here merely indicated they would vote for the candidate, not that they would only vote for the candidate
+        + Later I will explore voters who rank certain candidates as their #1 choice and how they feel about other candidates
+
+```{r,echo=F}
+
+# grab_voters_dislike <- function(col1){
+#    # print(!!as.name(col))
+#     df <- as.data.frame(democratic_party_voters[col1==1])
+# #    democratic_party_voters %>%
+# #        filter(1 == !!as.name(col1))
+#     #print(rlang::UQ(as.name(col)))
+#     #df <-democratic_party_voters %>%
+#   #  filter(UQ(as.name(col)) == 1)
+#  #   filter((!!as.name(col)) == 2)
+# #print(!!as.name(col))
+# }
+# grab_voters_dislike <- function(x){
+#           x <- substitute(x)
+#          eval(substitute(democratic_party_voters %>% filter(xx ==2),list(xx=x)))
+# 
+# # }
+# democratic_party_voters$`Bernie Sanders`
+# exp_df$ANTICHOICE20_2
+
+
+
+
+
+grab_voters_dislike <- function(col1,col2){
+aa <- exp_df %>%
+    filter(UQ(as.name(col1)) == 1)
+    #filter(UQ(as.name(col2)) == 1)
+}
+
+biden_voters <- grab_voters_dislike('CHOICE20_1')
+bernie_voters <- grab_voters_dislike('CHOICE20_2')
+kamala_voters <- grab_voters_dislike('CHOICE20_3')
+beto_voters <- grab_voters_dislike('CHOICE20_4')
+booker_voters <- grab_voters_dislike('CHOICE20_5')
+klobuchar_voters <- grab_voters_dislike('CHOICE20_6')
+warren_voters <- grab_voters_dislike('CHOICE20_7')
+buttigieg_voters <- grab_voters_dislike('CHOICE20_16') 
+
+
+
+
+## Build anti biden vote by candidate
+biden_aginstbiden <- table(biden_voters$ANTICHOICE20_1)[1]/(table(biden_voters$ANTICHOICE20_1)[1]+table(biden_voters$ANTICHOICE20_1)[2])*100
+bernie_aginstbiden <- table(bernie_voters$ANTICHOICE20_1)[1]/(table(bernie_voters$ANTICHOICE20_1)[1]+table(bernie_voters$ANTICHOICE20_1)[2])*100
+kamala_aginstbiden <- table(kamala_voters$ANTICHOICE20_1)[1]/(table(kamala_voters$ANTICHOICE20_1)[1]+table(kamala_voters$ANTICHOICE20_1)[2])*100
+beto_aginstbiden <- table(beto_voters$ANTICHOICE20_1)[1]/(table(beto_voters$ANTICHOICE20_1)[1]+table(beto_voters$ANTICHOICE20_1)[2])*100
+booker_aginstbiden <- table(booker_voters$ANTICHOICE20_1)[1]/(table(booker_voters$ANTICHOICE20_1)[1]+table(booker_voters$ANTICHOICE20_1)[2])*100
+Klobuchar_aginstbiden <- table(klobuchar_voters$ANTICHOICE20_1)[1]/(table(klobuchar_voters$ANTICHOICE20_1)[1]+table(klobuchar_voters$ANTICHOICE20_1)[2])*100
+Warren_aginstbiden <- table(warren_voters$ANTICHOICE20_1)[1]/(table(warren_voters$ANTICHOICE20_1)[1]+table(warren_voters$ANTICHOICE20_1)[2])*100
+buttigigeg_aginstbiden <- table(buttigieg_voters$ANTICHOICE20_1)[1]/(table(buttigieg_voters$ANTICHOICE20_1)[1]+table(buttigieg_voters$ANTICHOICE20_1)[2])*100
+against_biden <- rbind(biden_aginstbiden,bernie_aginstbiden,kamala_aginstbiden,beto_aginstbiden,booker_aginstbiden,Klobuchar_aginstbiden,Warren_aginstbiden,buttigigeg_aginstbiden)
+
+## Build anti bernie vote by candidate
+biden_aginstbernie <- table(biden_voters$ANTICHOICE20_2)[1]/(table(biden_voters$ANTICHOICE20_2)[1]+table(biden_voters$ANTICHOICE20_2)[2])*100
+bernie_aginstbernie <- table(bernie_voters$ANTICHOICE20_2)[1]/(table(bernie_voters$ANTICHOICE20_2)[1]+table(bernie_voters$ANTICHOICE20_2)[2])*100
+kamala_aginstbernie <- table(kamala_voters$ANTICHOICE20_2)[1]/(table(kamala_voters$ANTICHOICE20_2)[1]+table(kamala_voters$ANTICHOICE20_2)[2])*100
+beto_aginstbernie <- table(beto_voters$ANTICHOICE20_2)[1]/(table(beto_voters$ANTICHOICE20_2)[1]+table(beto_voters$ANTICHOICE20_2)[2])*100
+booker_aginstbernie <- table(booker_voters$ANTICHOICE20_2)[1]/(table(booker_voters$ANTICHOICE20_2)[1]+table(booker_voters$ANTICHOICE20_2)[2])*100
+Klobuchar_aginstbernie <- table(klobuchar_voters$ANTICHOICE20_2)[1]/(table(klobuchar_voters$ANTICHOICE20_2)[1]+table(klobuchar_voters$ANTICHOICE20_2)[2])*100
+Warren_aginstbernie <- table(warren_voters$ANTICHOICE20_2)[1]/(table(warren_voters$ANTICHOICE20_2)[1]+table(warren_voters$ANTICHOICE20_2)[2])*100
+buttigigeg_aginstbernie <- table(buttigieg_voters$ANTICHOICE20_2)[1]/(table(buttigieg_voters$ANTICHOICE20_2)[1]+table(buttigieg_voters$ANTICHOICE20_2)[2])*100
+against_bernie <- rbind(biden_aginstbernie,bernie_aginstbernie,kamala_aginstbernie,beto_aginstbernie,booker_aginstbernie,Klobuchar_aginstbernie,Warren_aginstbernie,buttigigeg_aginstbernie)
+
+## Build anti kamala_voters vote by candidate
+biden_aginstkamala <- table(biden_voters$ANTICHOICE20_3)[1]/(table(biden_voters$ANTICHOICE20_3)[1]+table(biden_voters$ANTICHOICE20_3)[2])*100
+bernie_aginstkamala <- table(bernie_voters$ANTICHOICE20_3)[1]/(table(bernie_voters$ANTICHOICE20_3)[1]+table(bernie_voters$ANTICHOICE20_3)[2])*100
+kamala_aginstkamala <- table(kamala_voters$ANTICHOICE20_3)[1]/(table(kamala_voters$ANTICHOICE20_3)[1]+table(kamala_voters$ANTICHOICE20_3)[2])*100
+beto_aginstkamala <- table(beto_voters$ANTICHOICE20_3)[1]/(table(beto_voters$ANTICHOICE20_3)[1]+table(beto_voters$ANTICHOICE20_3)[2])*100
+booker_aginstkamala <- table(booker_voters$ANTICHOICE20_3)[1]/(table(booker_voters$ANTICHOICE20_3)[1]+table(booker_voters$ANTICHOICE20_3)[2])*100
+Klobuchar_aginstkamala <- table(klobuchar_voters$ANTICHOICE20_3)[1]/(table(klobuchar_voters$ANTICHOICE20_3)[1]+table(klobuchar_voters$ANTICHOICE20_3)[2])*100
+Warren_aginstkamala <- table(warren_voters$ANTICHOICE20_3)[1]/(table(warren_voters$ANTICHOICE20_3)[1]+table(warren_voters$ANTICHOICE20_3)[2])*100
+buttigigeg_aginstkamala <- table(buttigieg_voters$ANTICHOICE20_3)[1]/(table(buttigieg_voters$ANTICHOICE20_3)[1]+table(buttigieg_voters$ANTICHOICE20_3)[2])*100
+against_kamala <- rbind(biden_aginstkamala,bernie_aginstkamala,kamala_aginstkamala,beto_aginstkamala,booker_aginstkamala,Klobuchar_aginstkamala,Warren_aginstkamala,buttigigeg_aginstkamala)
+
+## Build anti Warren vote by candidate
+biden_aginstWarren <- table(biden_voters$ANTICHOICE20_7)[1]/(table(biden_voters$ANTICHOICE20_7)[1]+table(biden_voters$ANTICHOICE20_7)[2])*100
+bernie_aginstWarren<- table(bernie_voters$ANTICHOICE20_7)[1]/(table(bernie_voters$ANTICHOICE20_7)[1]+table(bernie_voters$ANTICHOICE20_7)[2])*100
+kamala_aginstWarren <- table(kamala_voters$ANTICHOICE20_7)[1]/(table(kamala_voters$ANTICHOICE20_7)[1]+table(kamala_voters$ANTICHOICE20_7)[2])*100
+beto_aginstWarren <- table(beto_voters$ANTICHOICE20_7)[1]/(table(beto_voters$ANTICHOICE20_7)[1]+table(beto_voters$ANTICHOICE20_7)[2])*100
+booker_aginstWarren <- table(booker_voters$ANTICHOICE20_7)[1]/(table(booker_voters$ANTICHOICE20_7)[1]+table(booker_voters$ANTICHOICE20_7)[2])*100
+Klobuchar_aginstWarren <- table(klobuchar_voters$ANTICHOICE20_7)[1]/(table(klobuchar_voters$ANTICHOICE20_7)[1]+table(klobuchar_voters$ANTICHOICE20_7)[2])*100
+Warren_aginstWarren <- table(warren_voters$ANTICHOICE20_7)[1]/(table(warren_voters$ANTICHOICE20_7)[1]+table(warren_voters$ANTICHOICE20_7)[2])*100
+buttigigeg_aginstWarren <- table(buttigieg_voters$ANTICHOICE20_7)[1]/(table(buttigieg_voters$ANTICHOICE20_7)[1]+table(buttigieg_voters$ANTICHOICE20_7)[2])*100
+against_Warren <- rbind(biden_aginstWarren,bernie_aginstWarren,kamala_aginstWarren,beto_aginstWarren,booker_aginstWarren,Klobuchar_aginstWarren,Warren_aginstWarren,buttigigeg_aginstWarren)
+
+
+
+
+```
+
+
+<p style="font-family: times, serif; font-size:16pt; font-style:italic">**Anti-Biden vote**</p>
+```{r,echo=F}
+kable(against_biden,'markdown', booktabs =T,digits = 2)
+```
+<p style="font-family: times, serif; font-size:16pt; font-style:italic">**Anti-Bernie vote**</p>
+```{r,echo=F}
+kable(against_bernie,'markdown', booktabs =T,digits = 2)
+```
+<p style="font-family: times, serif; font-size:16pt; font-style:italic">**Anti-Kamala vote**</p>
+```{r,echo=F}
+kable(against_kamala,'markdown', booktabs =T,digits = 2)
+```
+<p style="font-family: times, serif; font-size:16pt; font-style:italic">**Anti Warren vote**</p>
+```{r,echo=F}
+kable(against_Warren,'markdown', booktabs =T,digits = 2)
+```
+
+
+<p style="font-family: times, serif; font-size:16pt; font-style:italic">**Below tables are built on voters choosing either Warren,Biden, or Bernie as their number 1 rank based choice**</p>
+```{r,echo=F}
+
+### chosen as rank 1
+bernie_as_one <- exp_df %>% 
+    filter(UQ(as.name('RANK20_2')) == 1)
+
+biden_as_one <- exp_df %>% 
+    filter(UQ(as.name('RANK20_1')) == 1)
+
+warren_as_one <- exp_df %>% 
+    filter(UQ(as.name('RANK20_7')) == 1)
+
+
+
+###60-86
+get_anti_vote <- function(x){
+sum(x==1)
+}
+
+##overall anti votes
+bernie_anti_otheres_vote <- as.data.frame(sapply(bernie_as_one[,60:86],get_anti_vote)/length(bernie_as_one)*100)
+rownames(bernie_anti_otheres_vote) <- names_for_candidates
+colnames(bernie_anti_otheres_vote) <- "percent_bernie_voters_dissaprove"
+
+biden_anti_otheres_vote <- as.data.frame(sapply(biden_as_one[,60:86],get_anti_vote)/length(biden_as_one)*100)
+rownames(biden_anti_otheres_vote) <- names_for_candidates
+colnames(biden_anti_otheres_vote) <- "percent_biden_voters_dissaprove"
+
+warren_anti_others_vote <- as.data.frame(sapply(warren_as_one[,60:86],get_anti_vote)/length(warren_as_one)*100)
+rownames(warren_anti_others_vote) <- names_for_candidates
+colnames(warren_anti_others_vote) <- "percent_Warren_voters_dissaprove"
+
+
+kable(bernie_anti_otheres_vote,'markdown', booktabs =T,digits = 2)
+kable(biden_anti_otheres_vote,'markdown', booktabs =T,digits = 2)
+kable(warren_anti_others_vote,'markdown', booktabs =T,digits = 2)
+
+
+
+avg_wont_vote_bernievoters <- mean(unlist(bernie_anti_otheres_vote))
+avg_wont_vote_bidenvoters <- mean(unlist(biden_anti_otheres_vote))
+avg_wont_vote_warrenvoters <- mean(unlist(warren_anti_others_vote))
+avg_votes <- rbind(avg_wont_vote_bernievoters,avg_wont_vote_bidenvoters,avg_wont_vote_warrenvoters)
+colnames(avg_votes) <- "average_refuse_vote_for_other_candidates"
+kable(avg_votes,'markdown', booktabs =T)
+
+
+```
+
+<p style="font-family: times, serif; font-size:16pt; font-style:italic">**Interesting Result**</p>
+ 
+If you look back at my last report on [Emerson data](https://medium.com/@justinscott_60149/part-1-looking-at-the-emerson-polling-data-a4db50801640) you will see that the data seemed to support the idea that Bernie voters were "anti-Warren" and others.  Here we can see that Biden voters are twice as likely as Bernie Voters and three times as likely as Warren voters to not support other candidates. We also see in this dataset that 8% of Warren voters would not consider Bernie and 10% of Bernie supporters would not support Warren.   This is strangely high given it's above the average for both groups general would not consider rates, considering how close these two are in policy positions.  I hate the idea of the left eating itself alive, but it does appear that this trend continues in this survey data, even if it's to a lesser extent.  add Biden rates
+ 
+### Not complete
++ Attempt to build out an html table with dropdown menu without Shiny
+```{r,echo=F,eval=F}
+
+
+
+
+png(filename = "output.png", width=420,height=680,bg = "white")
+grid.table(biden_anti_otheres_vote)
+dev.off()
+#
+
+png(filename = "output2.png", width=420,height=680,bg = "white")
+grid.table(bernie_anti_otheres_vote)
+dev.off()
+#
+# library(gridExtra)
+png(filename = "output3.png", width=420,height=680,bg = "white")
+grid.table(warren_anti_others_vote)
+dev.off()
+
+# a <- load.image('output.png')
+# b <- load.image('bernie_anti_otheres_vote.png')
+# c <- load.image('warren_anti_others_vote.png')
+
+
+library(gridExtra)
+library(tidyr)
+library(bsselectR)
+library(tidyverse)
+
+# create random df
+random_df <- data.frame(replicate(2,sample(0:1,200,rep=TRUE)))
+random_df2 <- data.frame(replicate(2,sample(0:1,200,rep=TRUE)))
+random_df3 <- data.frame(replicate(2,sample(0:1,200,rep=TRUE)))
+
+## save df to disk
+png(filename = "output11.png", width=420,height=680,bg = "white")
+gridExtra::grid.table(random_df)
+dev.off()
+png(filename = "output22.png", width=420,height=680,bg = "white")
+grid.table(random_df2)
+dev.off()
+png(filename = "output33.png", width=420,height=680,bg = "white")
+grid.table(random_df3)
+dev.off()
+state_plots <- c("output11.png","output22.png","output33.png")
+names(state_plots) <- str_replace_all(state_plots,
+                                      c("\\.png" = ""
+                                        ))
+bsselect(state_plots, type = "img")
+
+
+
+# 
+# #state_plots <- paste0(list.files("output", full.names = TRUE))
+# state_plots <- c("output.png","output2.png","output3.png")
+# names(state_plots) <- str_replace_all(state_plots, 
+#                                       c("\\.png" = "", 
+#                                         "plots/" = ""))
+
+bsselect(state_plots, type = "img")
+```
+ 
+ 
