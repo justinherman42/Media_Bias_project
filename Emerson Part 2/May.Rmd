@@ -1,0 +1,465 @@
+---
+title: "polling data"
+author: "Justin Herman"
+output:
+  html_document:
+    theme: "simplex"
+    highlight: 'pygments'
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+<style>h1{text-transform: capitalize}</style>
+<style>h2{text-transform: capitalize}</style>
+<style>h3{text-transform: capitalize}</style>
+<style>p:first-letter {text-transform: capitalize}</style>
+<style>li:first-letter {text-transform: capitalize}</style>
+<style type="text/css">body{ /* Normal  */ font-size: 18px;}}</style>
+
+
+# Overview
+
+In part 1 of my analysis on the April Emerson data [here](https://medium.com/@justinscott_60149/part-1-looking-at-the-emerson-polling-data-a4db50801640) I attempted to look into why on average 16% of Bernie Sanders supporters seemed to be unwilling to support other democratic party candidates, in particular 26 % voted for Trump over Elizabeth Warren. I concluded that blog post ackowledging that more data would be needed to investigate this trend. At the start of this blog post we are going to analyze the May poll data that Emerson has just released [here](http://emersonpolling.com/2019/05/).  After we examine these trends and compare them to this months data, I will start to look at interesting demographic conclusions from the May polling data
+\n
+\n
+
+As a quick note.  In my last blog post, I was weery over a lack of disclosure over polling methodology.  This month Emerson seems to have addressed these concerns with an addendum addressing their methodology [here](http://emersonpolling.com/wp-content/uploads/sites/47/2019/05/May-TI-1.pdf). This sets up an oppurtunity to test for differences in results between landline and online polling percantages. The sample size may turn out to be too small, but perhaps someone wants to take that project on.   
+
+
+### Trump Vote given matchups
+
++ Rows represent how often someone who picks the candidate on the left, will vote for trump in other matchups
+
+```{r,warning=FALSE,message=FALSE}
+## load in libraries 
+
+library(xlsx)
+library(readxl)
+library(tidyverse)
+library(kableExtra)
+library(gridExtra)
+
+## read in data and make changes as neccessary
+May <- read.csv('May1.csv',stringsAsFactors=FALSE)
+
+## get rid of %
+May <- as.data.frame(lapply(May, gsub, pattern='\\%', replacement=''))
+indx <- sapply(May, is.factor)
+
+## convert factor to numeric
+May[,3:38] <- lapply(May[3:38], function(x) as.numeric(as.character(x)))
+
+## rename columns permanently
+colnames(May)[c(2,3,4,5,6,9,10,11,12,15,16,17,18,21,22,23,24,27,28,29,30,33,34,35,36)] <- 
+    c("candidate", "TrumpvoteVsbiden","Trump % vs biden ", "Biden","Biden %",
+      "TrumpvoteVsbeto","Trump % vs beto ", "Beto","Beto %",
+      "TrumpvoteVsbernie","Trump % vs Bernie ", "Bernie","Bernie %",
+      "TrumpvoteVsHarris","Trump % vs Harris ", "Harris","Harris %",
+      "TrumpvoteVsWarren","Trump % vs Warren ", "Warren","Warren %",
+      "TrumpvoteVsButt","Trump % vs Butt ", "Butt","Butt %")
+
+May <- May[c(3:11,13:16,18,20,21,23,24,25,26),2:36]
+
+## convert candidate column to character
+May[,1] <- as.character(May[,1] )
+
+May[,2:35] <- lapply(May[2:35], function(x) as.numeric(as.character(x)))
+
+#Make rownames candidates names
+rownames(May) <- May$candidate
+
+
+
+get_dem_trump_vote <- function(candidate){
+    Trump_votes <- candidate[,c(3,9,15,21,27,33)]
+}
+
+## build candidates and join them in df
+biden<- get_dem_trump_vote(May[5,])
+bernie <- get_dem_trump_vote(May[3,])
+beto <- get_dem_trump_vote(May[1,])
+buttigieg <- get_dem_trump_vote(May[2,])
+kamala <- get_dem_trump_vote(May[6,])
+warren <- get_dem_trump_vote(May[4,])   
+candidates <-rbind(biden,bernie,beto,buttigieg,kamala,warren)
+kable(candidates,digits =2,'markdown',booktabs =T, caption = "Total respondents")
+
+```
+
+\n
+\N
+
+
+### Total Trump Votes:
+
+
+```{r}
+kable(May[20,c(2,8,14,20,26)],digits =2,'markdown',booktabs =T, caption = "Total respondents")
+# sum(May[20,c(2,8,14,20,26)])/(356*5)
+# sum(May[20,c(2,8,14,20,26)])
+```
+\n
+\n
+
+### Average Trump Vote From democrats by first choice candidate:
+
+
+\n
+\N
+
+
+```{r}
+
+## list to store rates of voting for trump
+turncoaters <- c()
+
+
+## Build function to print total votes by trump agaisnt Dem opponents, total potential votes, percent that voted for trump of 
+turn_coats <-function(candidate) {
+   trump_votes <- sum(candidate[c(2,8,14,20,26)])
+   my_percent <- sum(candidate[c(2,8,14,20,26)])/(candidate[6]*5)*100
+   return(my_percent)
+}
+
+for (x in 1:10){
+    turncoat_1 <- turn_coats(May[x,])
+    turncoaters[[x]] <- turncoat_1
+}
+dem_party_names <- rownames(May[1:10,])
+turncoaters <- as.data.frame(as.matrix(unlist(turncoaters)),ncol=1)
+rownames(turncoaters) <- dem_party_names
+colnames(turncoaters) <- "Average % Vote For Trump Over Other Candidates"
+kable(turncoaters,digits =2,'markdown',booktabs =T )
+#lapply(as.matrix(May[1:10,]),turn_coats)
+
+
+
+
+```
+
++ Overall 246 respondents said they would vote for Trump in one on one mathcups, out of a total of 1780, which comes out to 13.8%
+
+### Comparing to April
+
+```{r,message=F,warning=F}
+
+## read in data and make changes as neccessary
+April <- read.csv('April1.csv',stringsAsFactors=FALSE)
+
+## get rid of %
+April <- as.data.frame(lapply(April, gsub, pattern='\\%', replacement=''))
+indx <- sapply(April, is.factor)
+
+## convert factor to numeric
+April[,3:39] <- lapply(April[3:39], function(x) as.numeric(as.character(x)))
+April <- April[3:24,]
+
+## Temp rename some columns for kable printout
+colnames(April)[c(2,7,13,19,25,31)] <- c("Candidate","Vs biden","Vs beto", "Vs bernie","Vs kamala","Vs Warren")
+#kable(April[,c(2,7,13,19,25,31)],digits =2,'markdown',booktabs =T, caption = "Total respondents Trump vs Candidates")
+
+## rename columns permanently
+colnames(April)[c(2,3,4,5,6,9,10,11,12,15,16,17,18,21,22,23,24,27,28,29,30,33,34,35,36)] <- 
+    c("candidate", "TrumpvoteVsbiden","Trump % vs biden ", "Biden","Biden %",
+      "TrumpvoteVsbeto","Trump % vs beto ", "Beto","Beto %",
+      "TrumpvoteVsbernie","Trump % vs Bernie ", "Bernie","Bernie %",
+      "TrumpvoteVsHarris","Trump % vs Harris ", "Harris","Harris %",
+      "TrumpvoteVsWarren","Trump % vs Warren ", "Warren","Warren %",
+      "TrumpvoteVsButt","Trump % vs Butt ", "Butt","Butt %")
+
+
+
+
+
+## get rid of qeustion col
+April <- April[,-1] 
+## convert candidate column to character
+April[,1] <- as.character(April[,1] )
+
+
+#Make rownames candidates names
+rownames(April) <- April$candidate
+
+
+get_dem_trump_vote <- function(candidate){
+    Trump_votes <- candidate[,c(1,3,9,15,21,27,33)]
+}
+
+
+## build candidates and join them in df
+biden<- get_dem_trump_vote(April[5,])
+bernie <- get_dem_trump_vote(April[3,])
+beto <- get_dem_trump_vote(April[1,])
+buttigieg <- get_dem_trump_vote(April[2,])
+kamala <- get_dem_trump_vote(April[6,])
+warren <- get_dem_trump_vote(April[4,])   
+candidates <-rbind(biden,bernie,beto,buttigieg,kamala,warren)
+kable(candidates,digits =2,'markdown',booktabs =T, caption = "Total respondents")
+
+
+```
+
+
+
+## dealing with full dataset for future reproducibility
+
+```{r}
+# lets deal with entire dataset instead of sample
+
+
+May_2 <- read.csv('May_survey.csv',stringsAsFactors=FALSE)
+May_2 <- as.data.frame(May_2)
+
+## Renaming columns
+
+# turn empty space in subheader column into Percent and replace with percent symbol 
+May_2[1,3:258][May_2[1,3:258]==''] <- 'Percent'
+May_2 <- May_2[c(1,3:131),]
+
+# Trim columns
+#trimws(May_2[,], which = c("both"))
+
+
+## build new row names                         
+new_names <- rep()
+list_colnames <- unlist(May_2[1,3:258])
+for (x in list_colnames){
+    if (str_starts(x,"Per")){
+        new_x <- paste(last_x,x)
+        new_names <- append(new_names, new_x)
+        last_x <- x
+    }
+    else{
+    new_names <- append(new_names, x)
+    last_x <- x
+    }
+}
+
+## insert
+May_2[1,3:258] <- new_names
+
+## add row 1 names where col names start with X
+for (i in 3:258){
+    if (str_starts(colnames(May_2)[i],"X")){
+        colnames(May_2)[i] <- new_names[i-2]
+        
+    }
+}
+## drop top row 
+May_2 <- May_2[-1,]
+## get rid of all total percent columns
+total_pct_columns <- which(str_starts(colnames(May_2),"Total Percent"))
+May_2 <- May_2[,-total_pct_columns]
+
+
+
+## get rid of %
+May_2 <- as.data.frame(lapply(May_2, gsub, pattern='\\%', replacement=''))
+indx <- sapply(May_2, is.factor)
+
+## convert factor to numeric
+May_2[,3:232] <- lapply(May_2[3:232], function(x) as.numeric(as.character(x)))
+
+
+#kable(May_2[,c(2,7,13,19,25,31)],digits =2,'markdown',booktabs =T, caption = "Total respondents Trump vs Candidates")
+
+```
+
+
+## Analyzing 2016 Primary voters 2020 preferences
+
++ Grab 2016 primary voters in our Survey Data
+    + 49% voted for hilary
+    + 37% voted for bernie 
++ 39.8% of 2016 primary Bernie voters, choose Bernie as their primary choice in 2020
+    +  Joe biden(21%), Elizabeth Warren( 11% ), Buttigieg(7.1%), Kamala(4.8%)
++ 39.7% of Clinton voters are voting for Joe Biden
+    + Kamala Harris(14.9%),Bernie Sanders (14.9%), Warren (9.1%), Buttigieg(7.8%)
+
+I find it fascniating  that nearly the same percantage of voters from 2016 have split off towards Biden and Bernie.  Is this an indication of how many voters voted for Bernie out of lack of options? Does this reflect the level of democratic voters which are ideologically grounded into their own camps (I.E establishment candidate versus anti-establishment). Was this an intentional demographic move by the survey analysts?  This seems like a big hit to Bernie, and a huge boost to Biden.  But this really depends on the causality, which is nearly impossible to discern.  I will make sure to focus on this category in future analysis on Emerson Polls.     
+
+```{r}
+primary_voters <- May_2[c(47,48,51),]
+hilary <- (88+126)/ (189+241)
+bernie <- (74+84) / (189+241)
+#hilary
+#bernie
+rownames(primary_voters) <- c("Clinton","Sanders","Total")
+#colnames(primary_voters)
+kable(primary_voters[,seq(37,47,2)],digits =2,'markdown',booktabs =T )
+kable(primary_voters[,seq(49,59,2)],digits =2,'markdown',booktabs =T )
+
+
+
+```
+
+
+## Interesting demographics of 2016 primary voters
++ Of each candidates voters, incomes over 100k make up  18.4% of bernie voters and 17.1 % of hilary voters
+    + considering the populist economic message that seems strange
+    + I will look into how income effects 2020 preferences soon
++ Strangely a higher percentage of 2016 Hilary voters would vote for Bernie over Trump(94.9%) than Bernie 2016 voters would vote for Bernie over Trump (91.2%)
++ of the 27 voters who voted for someone else in democratic primaries in 2016, 14 are voting for Biden in 2020.  Only 1 said they would vote for Bernie(a sign of dislike of Hilary?)
++ of the 31 that did not vote in 2016 11/31 said they will vote for bernie in 2020(is this a function of age?)
+
+
+## Analyzing age demographics
++ age demogrphics show a battle of Biden versus bernie 
++ As seen below Bernie(41.2%) has a huge lead in 18-29 with Biden(11.1%) being second
++ 30-49 Bernie(29.1%) retains a small lead over Biden(26.4%)
++ 50-64 Biden takes a big lead( Biden-42.4%, Bernie 19%)
++ 65+ Bernie(10.3%) is no longer 2nd favorite Kamala(12.1%) is with Biden (52.4%) maintaining a commanding lead
+
+
+
+
+```{r}
+age_demos <- May_2[c(81:85),]
+rownames(age_demos) <- age_demos$X
+kable(age_demos[,seq(37,47,2)],digits =2,'markdown',booktabs =T )
+
+
+
+```
+
+
+These demographics seem to make plenty of sense.  Bernie's rise is tied to energizing young voters over a party platform that would produce tremendous change in american politics.  Older generations wouldn't stand to benefit from the massive investments. The implication is obvious.  Polls like this have been generated  demographic assumptions by age. Below I print out the demographics from this survey
+
+```{r}
+age_demos2 <- as.data.frame(May_2[c(81:85),8])
+colnames(age_demos2) <- "votes"
+age_demos2 <- age_demos2 %>% 
+    mutate( pct= votes/392 *100)
+#age_demos2 <- as.data.frame(age_demos2)
+rownames(age_demos2) <- age_demos$X
+
+kable(age_demos2,digits =2,'markdown',booktabs =T )
+
+# 
+# 
+# a <- c(13,30,29,27)
+# b <- c(.58,.51,.45,.44)
+# a*b*2
+
+```
+
+I beleive this is a fiar representation of the electorate by age.  Turnout by age groups will clearly be the key to determining who wins the nomination
+
+## Breakdown by Poltiical ideology
+
+```{r}
+ideo_demos <- May_2[c(91:95),]
+rownames(ideo_demos) <- ideo_demos$X
+kable(ideo_demos[,seq(37,47,2)],digits =2,'markdown',booktabs =T )
+```
+
++ Clear ideological divide but strangely enough Joe Biden still captures very liberal(19.2%) and leads in all other ideological categories. 
+
+```{r}
+
+
+turncoaters <- c()
+
+
+## Build function to print total votes by trump agaisnt Dem opponents, total potential votes, percent that voted for trump of 
+turn_coats <-function(candidate) {
+   trump_votes <- sum(candidate[c(97,102,107,112,117)])
+   print(trump_votes)
+   my_percent <- sum(candidate[c(97,102,107,112,117)])/(candidate[101]*5)*100
+   return(my_percent)
+}
+turncoaters <- vector()
+for (x in 1:5){
+    turncoat_1 <- turn_coats(ideo_demos[x,])
+    turncoaters[[x]] <- turncoat_1
+}
+dem_party_names <- rownames(ideo_demos)
+
+
+
+turncoaters <- as.data.frame(as.matrix(unlist(turncoaters)),ncol=1)
+rownames(turncoaters) <- dem_party_names
+colnames(turncoaters) <- "Average % Vote For Trump Over Other Candidates"
+kable(turncoaters,digits =2,'markdown',booktabs =T )
+#lapply(as.matrix(May[1:10,]),turn_coats)
+
+#colnames(ideo_demos[,97:125])
+
+
+
+```
+
++ we can see that nearly 40% of moderate democratic voters, vote for Trump
++ this has some large implications for the general election.  
+    + People will constantly highlight how democrats need to reach out to the moderates.  What this shows is that 40% of moderate democratic voters will end up voting for Trump.  
+    + nearly 87% of both somewhat and very liberal voters will vote for a democratic candidate.
+    + Winning over conservative voters seems rather pointless.  total volume of voters matters here  
+
+
+```{r}
+num_dems_ideology <- as.data.frame(as.matrix(ideo_demos$Party.Affiliation,ncol=1))
+
+rownames(num_dems_ideology) <- dem_party_names[1:5]
+colnames(num_dems_ideology) <- "democratic_voters"
+num_dems_ideology <- num_dems_ideology %>% 
+    mutate( pct= democratic_voters/389 *100)
+rownames(num_dems_ideology) <- dem_party_names
+kable(num_dems_ideology,digits =2,'markdown',booktabs =T )
+
+
+
+```
+
++ So given this dataset, over 60% of voters are in the camp which are able to be won over.  Perhaps focus should be on turn out in these swaths of the electorate
+
+## landline versus survey data 
++ The demographics for the landline versus Online data, are vastly different.  
+    + I am unsure about this, but I believe Emerson used the online data to fill in their overall demographics to meet a standard that matches demographics from the 2016 election.
+    + If this is in fact the case, it shows the inherent problem with landline polling. Below you can see the age demographics for landline and online portions of the data.
++ Nearly 80% of the 400 online respondents were under the age of 50.  
++ Nearly 75% of the landline respondents were over the age of 50
++ These samples are terribly biased towards each demographic. While the survey may in fact reach a reasonable representation of the population through combining both datasets, this highlights issues on the landline side.
+    + How do young voters that are landline polled differ from the young voter population? Why did Emerson have to conduct online polling with such a skewed demographic? Are they possibly admitting that we can't comfortably obtain landline polling for young voters?  
+        + While Emerson has done a better job at talking about their assumptions, perhaps they need to go even further in the next polling set.
+    
+```{r}
+#May_2[]
+age_names <- May_2$X[81:85]
+age_demos22 <- as.data.frame(May_2[c(81:85),228:232])
+rownames(age_demos22) <- age_names
+
+percent_agegroup <- age_demos22 %>% 
+    select(Mode,Landline) %>%
+    mutate(online_percent_by_age= Mode/402*100) %>% 
+    mutate(landline_percent_by_age= Landline/604*100) 
+rownames(percent_agegroup) <- age_names    
+kable(percent_agegroup[,3:4],digits =2,'markdown',booktabs =T )    
+
+```
+
+
+
+## Conclusion
+As usual ther are plenty of other interesting things to lok into.  I still want to look into breakdowns by telephone versus by internet polling conducted by the third party source in this poll.  I would like to look more into income and how it effects voting behavior.  This survey contained Issue importance ratings, cross tabulating issues with different demographics would be very interesting. 
+
+
+
+```{r}
+
+## of bernie Voters in 2016 primary, what they look like- who did you vote for in 2016 democratic primart
+## of someone and did not vote how amny claim to be democrats -2016vote column
+## party affiliation of ethnic breakdowns
+## of very liberal choice breakdown/ average would vote for trump
+## do above for all categories get avg would vote for trump
+## High income looking at vote preference party affiliation
+## age breadkown of issue importance
+## independent and unsure votes voting preference by candidates
+
+```
+
+
+
+
