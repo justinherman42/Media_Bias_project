@@ -285,48 +285,69 @@ sort(table(df_5$clustered_jobs),decreasing=TRUE)[0:50]
 all_ceo$date
 
 
-map <- world +
-  geom_point(aes(x = lon, y = lat, size = followers, 
-                 frame = created_at,
-                 cumulative = TRUE),
-             data = rladies, colour = 'purple', alpha = .5) +
-  geom_point(aes(x = lon, y = lat, size = followers, # this is the init transparent frame
-                 frame = created_at,
-                 cumulative = TRUE),
-             data = ghost_points_ini, alpha = 0) +
-  geom_point(aes(x = lon, y = lat, size = followers, # this is the final transparent frames
-                 frame = created_at,
-                 cumulative = TRUE),
-             data = ghost_points_fin, alpha = 0) +
-  scale_size_continuous(range = c(1, 8), breaks = c(250, 500, 750, 1000)) +
-  labs(size = 'Followers') 
+# map <- world +
+#   geom_point(aes(x = lon, y = lat, size = followers, 
+#                  frame = created_at,
+#                  cumulative = TRUE),
+#              data = rladies, colour = 'purple', alpha = .5) +
+#   geom_point(aes(x = lon, y = lat, size = followers, # this is the init transparent frame
+#                  frame = created_at,
+#                  cumulative = TRUE),
+#              data = ghost_points_ini, alpha = 0) +
+#   geom_point(aes(x = lon, y = lat, size = followers, # this is the final transparent frames
+#                  frame = created_at,
+#                  cumulative = TRUE),
+#              data = ghost_points_fin, alpha = 0) +
+#   scale_size_continuous(range = c(1, 8), breaks = c(250, 500, 750, 1000)) +
+#   labs(size = 'Followers') 
+# 
+# 
+# dates <- as_tibble(seq(floor_date(as.Date(min(rladies$created_at)), 
+#                                   unit = "month"),
+#                        as.Date('2017-05-15'),
+#                        by = 'days')) %>%
+#   filter(day(value) %in% c(1, 10, 20))
 
 
-dates <- as_tibble(seq(floor_date(as.Date(min(rladies$created_at)), 
-                                  unit = "month"),
-                       as.Date('2017-05-15'),
-                       by = 'days')) %>%
-  filter(day(value) %in% c(1, 10, 20))
+# 
+# # Make 2 basic barplots
+# a=data.frame(group=c("A","B","C"), values=c(3,2,4), frame=rep('a',3))
+# b=data.frame(group=c("A","B","C"), values=c(5,3,7), frame=rep('b',3))
+# data=rbind(a,b)	
+#  
 
 
 
-# Make 2 basic barplots
-a=data.frame(group=c("A","B","C"), values=c(3,2,4), frame=rep('a',3))
-b=data.frame(group=c("A","B","C"), values=c(5,3,7), frame=rep('b',3))
-data=rbind(a,b)	
- 
+##build cartesian df
+allnames <- data.frame(rep(unique(all_ceo$committee_name),27))
+build_dates <- rep(seq(as.Date("2018-12-31	"), as.Date("2019-07-01	"), by = "week"),13)
+build_dates <- sort(as.Date(build_dates))
+cart_df <- as.data.frame(cbind(allnames,build_dates))
+colnames(cart_df) <- c("committee_name","week")
 
-
-
+## build our df
+str(allnames)
 library(lubridate)
 library(gganimate)
+
+
+
 all_ceo$contribution_receipt_date <-as.Date(all_ceo$contribution_receipt_date) 
 all_ceo$committee_name <- as.factor(all_ceo$committee_name )
-weekly_donations <- all_ceo %>% group_by(week = cut(contribution_receipt_date,"week"),committee_name) %>% summarise(value = sum(contribution_receipt_amount))
+##cart join fail?
+# aa <- plyr::join(cart_df,all_ceo,type="left", by=c("committee_name"))
+weekly_donations <- aa %>% group_by(week = cut(contribution_receipt_date,"week"),committee_name,) %>% summarise(value = sum(contribution_receipt_amount)) %>% 
+  complete(committee_name)
+weekly_donations[is.na(weekly_donations)] <- 0
+
+
+weekly_donations2 <- all_ceo %>% group_by(week = cut(contribution_receipt_date,"week"),committee_name) %>% summarise(value = sum(contribution_receipt_amount))
 
 weekly_donations$csum <- ave(weekly_donations$value, weekly_donations$committee_name, FUN=cumsum)
+weekly_donations$quarter <- ifelse(as.Date(weekly_donations$week)< as.Date('2019-04-01'),1,2)
+
 # Basic barplot:
-ggplot(weekly_donations, aes(x=committee_name, y=csum)) + 
+ggplot(weekly_donations, aes(x=committee_name, y=csum,color=quarter)) + 
   geom_bar(stat='identity')+
       theme(axis.text.x=element_text(angle=90,hjust=1))+
     labs(title="{closest_state}") +
