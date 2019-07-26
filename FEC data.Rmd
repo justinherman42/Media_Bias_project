@@ -89,5 +89,261 @@ kable(new_tab_df)
 
 
 <br /> <br />
-Above I print out the top 10 uses of the term CEO, but as mentioned there are over 80 combinations.  Capturing these 80 combinations alone brings our CEO count from 1713- 2163. about 25% increase in correctly capturing this occupation.
+
+
+```{r}
+## Function changes occupation based upon a regular expression. 
+## Creates column to note if change was made,stores old names, returns DF
+cluster_jobs <- function(df,reg_express,replacement_val){    
+   
+    ## Populate new col with imputed value
+    df$clustered_jobs[str_detect(df$clustered_jobs,reg_express)] <- replacement_val
+    ## Build column to track if change was made to occupation 
+    df <- df %>% 
+            mutate(job_changed = ifelse(clustered_jobs == contributor_occupation,'0','1'))
+    return(df)
+}
+```
+
+
+
+```{r}
+ ## Build new_jobs_col
+all_cand_df <- all_cand_df %>% 
+    mutate(clustered_jobs = contributor_occupation)
+
+## Job Clustering
+df_5 <- cluster_jobs(all_cand_df,"CEO","CEO")
+df_5$clustered_jobs <- as.character(df_5$clustered_jobs)
+df_5$clustered_jobs[is.na(df_5$clustered_jobs)] <- "Not selected"
+
+
+## Executive level positions
+## WORDS INTENTIONALLY ARE REPLACED WITH SOME LOWERCASE LETTERS
+
+df_5 <- cluster_jobs(df_5,"CHIEF EXECUTIVE OFFICER","CEO")
+df_5 <- cluster_jobs(df_5,'CHIEF \\w* OFFICER',"C LEVEL_eXECS")
+df_5 <- cluster_jobs(df_5,'^C[A-D|F-Z]O\\b',"C LEVEL_eXECS")
+df_5 <- cluster_jobs(df_5,'/C[A-D|F-Z]O\\b',"C LEVEL_eXECS")
+df_5 <- cluster_jobs(df_5,"MANAGING PARTNER","CEO")
+df_5 <- cluster_jobs(df_5,'EVP',"C LEVEL_eXECS")
+df_5 <- cluster_jobs(df_5,'EXECUTIVE VP',"C LEVEL_eXECS")
+df_5 <- cluster_jobs(df_5,'^EXECUTIVE$',"eXECS")
+df_5 <- cluster_jobs(df_5,'^EXECUTIVE OFFICER',"C LEVEL_eXECS")
+df_5 <- cluster_jobs(df_5,'EXECUTIVE VICE PRESIDENT',"C LEVEL_eXECS")
+df_5 <- cluster_jobs(df_5,'MANAGING DIRECTOR',"C LEVEL_eXECS")
+df_5 <- cluster_jobs(df_5,'SVP',"C LEVEL_eXECS")
+df_5 <- cluster_jobs(df_5,'^PRESIDENT\\b',"CEO")
+df_5 <- cluster_jobs(df_5,'^FOUNDER\\b','CEO')
+df_5 <- cluster_jobs(df_5,'EXECUTIVE DIRECTOR','CEO')
+df_5 <- cluster_jobs(df_5,'FINANCIAL DIRECTOR','C LEVEL_eXECS')
+df_5 <- cluster_jobs(df_5,'EXECUTIVE RECRUITER','rECRUITER')
+df_5 <- cluster_jobs(df_5,'EXECUTIVE SEARCH','rECRUITER')
+df_5 <- cluster_jobs(df_5,'EXECUTIVE ASSISTANT','EX aSSISTANT')
+df_5 <- cluster_jobs(df_5,'EXECUTIVE ADMINISTRATOR','EX aSSISTANT')
+df_5 <- cluster_jobs(df_5,'EXECUTIVE COORDINATOR','EX aSSISTANT')
+df_5 <- cluster_jobs(df_5,'CORPORATE EXECUTIVE','C LEVEL_eXECS')
+df_5 <- cluster_jobs(df_5,'EXECUTIVE$','eXECS')
+df_5 <- cluster_jobs(df_5,'^VP','Vp roles')
+df_5 <- cluster_jobs(df_5,'SVP',"C LEVEL_eXECS")
+df_5 <- cluster_jobs(df_5,'EXEC.*DIR','CEO')
+df_5 <- cluster_jobs(df_5,'VP\\b','Vp roles')
+df_5 <- cluster_jobs(df_5,'VICE PRESIDENT','Vp roles')
+df_5 <- cluster_jobs(df_5,'^DIRECTOR','eXECS')
+df_5 <- cluster_jobs(df_5,'^PARTNER','eXECS')
+
+
+## LEGAL
+df_5 <- cluster_jobs(df_5,'LAWYER|ATTORNEY','ATTORNEY')
+
+## Academia
+df_5 <- cluster_jobs(df_5,'PROFESSOR|TEACHER|SCHOLAR|LECTURER|DOCTORAL|INSTRUCTOR','ACADEMIA')
+df_5 <- cluster_jobs(df_5,'EDUC','ACADEMIA')
+df_5 <- cluster_jobs(df_5,'STUDENT','STUDENT')
+df_5 <- cluster_jobs(df_5,'LIBRAR','LIBRARIAN')
+## Unemployed self employed
+df_5 <- cluster_jobs(df_5,'^SELF','SELF EMPLOYED')
+df_5 <- cluster_jobs(df_5,'^NOT-EMPLOYED$','NOT EMPLOYED')
+## IT JOBS
+df_5 <- cluster_jobs(df_5,'^SOFTWARE','It FIELD')
+df_5 <- cluster_jobs(df_5,'PROGRAMMER','It FIELD')
+df_5 <- cluster_jobs(df_5,'^IT','It FIELD')
+df_5 <- cluster_jobs(df_5,'^WEB','It FIELD')
+## CREATIVE 
+df_5 <- cluster_jobs(df_5,'DESIGNER|ARTIST|MUSICIAN|FILM|CREATIVE|PHOTO|EDITOR|WRITER','CREATIVE')
+df_5 <- cluster_jobs(df_5,'^(AUTHOR|ACTOR|ACTRESS)','CREATIVE')
+## FINANCIAL JOBS
+df_5 <- cluster_jobs(df_5,'^(FINANCIAL|INVESTOR|INVESTMENT|CAPITAL|ENTREPRENEUR|FINANCE)','FINANCIAL SECTOR')
+## MILITARY AND LAW ENFORCEMENT
+df_5 <- cluster_jobs(df_5,'MILITARY|ARMY|LAW ENFORCEMENT|FIRE','LAW ENFORCEMENT')
+## Labor 
+df_5 <- cluster_jobs(df_5,'^(PIPE|STEAM|ELECTR|UNION)','LABORER')
+df_5 <- cluster_jobs(df_5,'^(TRUCK|DRIVER)','DRIVER')
+df_5 <- cluster_jobs(df_5,'CONTRACTOR','CONTRACTOR')
+## SCIENCE AND MEDICINE
+df_5 <- cluster_jobs(df_5,'PHYSICIAN|MD|DOCTOR','PHYSICIAN')
+df_5 <- cluster_jobs(df_5,'SCIENTIST|PHYSICIST|CHEMIST','SCIENTIST')
+df_5 <- cluster_jobs(df_5,'PSY|SOCIAL WORKER|SOCIAL WORK','MENTAL HEALTH')
+df_5 <- cluster_jobs(df_5,'^RN$','RN/Nurse')
+df_5 <- cluster_jobs(df_5,'NURSE','RN/Nurse')
+## SKILLED LABOR
+df_5 <- cluster_jobs(df_5,'ANALYST|ENGINEER|ARCHITECT','ANALYST/ENGINEER/ARCHITECT')
+df_5 <- cluster_jobs(df_5,'CPA|ACCOUNTANT|ACCOUNTING|BOOKKEEPER','ACCOUNTANT')
+## Real estate
+df_5 <- cluster_jobs(df_5,'REALTOR|REAL ESTATE','REAL ESTATE')
+
+## Secretary
+df_5 <- cluster_jobs(df_5,'SECRETARY','SECRETARY')
+df_5 <- cluster_jobs(df_5,'\\w ASSISTANT','SECRETARY')
+```
+
+
+
+Above I print out the top 10 uses of the term CEO, but as mentioned there are over 80 combinations.  Capturing these 80 combinations alone brings our CEO count from 1713- 2163. about 25% increase in correctly capturing this occupation. From here I add in similar terms like mentioned in introductory paragraph. In the end we now have 4459 repsondents that represent the actual role of CEO.  I expanded this clustering to create some other fields as well.  I bundled legal,heatlh, academic,blue collar jobs into their own aggregated categories. But for the purpose of this article, we will attempt to simply look at the CEO, execs, and c lvel execs.  To get an idea of what the rolls look like in each of these categories, lets print tables of each category, by original job title.
+
+## CEO
+we have increased our CEO captures from 1713 to over 4400 and you can tell the regex has been highly effective
+
+```{r}
+
+df_5
+
+all_ceo <- df_5 %>% 
+    filter(df_5$clustered_jobs=="CEO")
+
+new_tab <- sort(table(all_ceo$contributor_occupation),decreasing = TRUE)
+
+new_tab_df <- as.data.frame(new_tab[1:15])
+colnames(new_tab_df) <- c("Different_CEO_Titles","Count")
+kable(new_tab_df,caption = 'Top 4126 uses of CEO with original unedited job title.')
+```
+
+
+## Executives
+we have increased our EXECUTIVE captures from 1516 to over 4100 
+
+```{r}
+
+df_5
+
+all_execs <- df_5 %>% 
+    filter(df_5$clustered_jobs=="eXECS")
+
+new_tab <- sort(table(all_execs$contributor_occupation),decreasing = TRUE)
+
+new_tab_df <- as.data.frame(new_tab[1:15])
+colnames(new_tab_df) <- c("Different_ExECUTIVE_Titles","Count")
+
+sum(new_tab_df$Count)
+kable(new_tab_df,caption = 'Top 3112 uses of executive title with original unedited job title.')
+
+
+```
+
+## C-Level_Execs
+You Can see the aggregation here was extremely useful.  I could have added terms like Managing Director to CEO, but I felt more comfortable keeping it as C-level_executive position  
+
+```{r}
+
+all_C_LEVEL<- df_5 %>% 
+    filter(df_5$clustered_jobs=="C LEVEL_eXECS")
+
+new_tab <- sort(table(all_C_LEVEL$contributor_occupation),decreasing = TRUE)
+
+new_tab_df <- as.data.frame(new_tab[1:15])
+colnames(new_tab_df) <- c("Different_C_level_Titles","Count")
+
+kable(new_tab_df,caption = 'Top 997 uses of C-level executive title with original unedited job title.')
+
+
+```
+
+## Summary of Data Manipulation
+ 
+I made several categoriziing assumptions in my data manipulation operations.  The regex appraoch I took to clustering these groups will absolutely include some examples that do not actually represent the categorization of job title that I have made.  RegEX is a brute force attempt to categorize the occuaptions algorithmically. However, as I have tracked the original job occupation, you can see overwelmingly that these job titles are correctly identified.  The data and code is also available at my site[insertsite]. The next step is I am going to visualize who a     
+
+##Full table
+```{r}
+sort(table(df_5$clustered_jobs),decreasing=TRUE)[0:50]
+
+
+
+
+
+
+# df_5$clustered_jobs[str_detect(df_5$clustered_jobs,'^FOUNDER\\b')]
+# df_5$clustered_jobs[str_detect(df_5$clustered_jobs,'INSTRUCTOR')] 
+# df_5$clustered_jobs[str_detect(df_5$clustered_jobs,'^IT')]
+# # PROGRAMMER, 
+# #sort(table(df_5$clustered_jobs[str_detect(df_5$clustered_jobs,'(LEGAL)')]),decreasing=TRUE )
+# #sort(table(df_5$clustered_jobs[str_detect(df_5$clustered_jobs,'^(PIPE|STEAM|ELECTR|UNION)')]),decreasing=TRUE )
+# #sort(table(df_5$clustered_jobs[str_detect(df_5$clustered_jobs,'^(FINANCIAL|INVESTOR|INVESTMENT|CAPITAL|ENTREPRENEUR)')]),decreasing=TRUE )
+# df_5$clustered_jobs[str_detect(df_5$clustered_jobs,'EDITOR' )]
+
+
+
+all_ceo$date
+
+
+map <- world +
+  geom_point(aes(x = lon, y = lat, size = followers, 
+                 frame = created_at,
+                 cumulative = TRUE),
+             data = rladies, colour = 'purple', alpha = .5) +
+  geom_point(aes(x = lon, y = lat, size = followers, # this is the init transparent frame
+                 frame = created_at,
+                 cumulative = TRUE),
+             data = ghost_points_ini, alpha = 0) +
+  geom_point(aes(x = lon, y = lat, size = followers, # this is the final transparent frames
+                 frame = created_at,
+                 cumulative = TRUE),
+             data = ghost_points_fin, alpha = 0) +
+  scale_size_continuous(range = c(1, 8), breaks = c(250, 500, 750, 1000)) +
+  labs(size = 'Followers') 
+
+
+dates <- as_tibble(seq(floor_date(as.Date(min(rladies$created_at)), 
+                                  unit = "month"),
+                       as.Date('2017-05-15'),
+                       by = 'days')) %>%
+  filter(day(value) %in% c(1, 10, 20))
+
+
+
+# Make 2 basic barplots
+a=data.frame(group=c("A","B","C"), values=c(3,2,4), frame=rep('a',3))
+b=data.frame(group=c("A","B","C"), values=c(5,3,7), frame=rep('b',3))
+data=rbind(a,b)	
+ 
+
+
+
+library(lubridate)
+library(gganimate)
+all_ceo$contribution_receipt_date <-as.Date(all_ceo$contribution_receipt_date) 
+all_ceo$committee_name <- as.factor(all_ceo$committee_name )
+weekly_donations <- all_ceo %>% group_by(week = cut(contribution_receipt_date,"week"),committee_name) %>% summarise(value = sum(contribution_receipt_amount))
+
+weekly_donations$csum <- ave(weekly_donations$value, weekly_donations$committee_name, FUN=cumsum)
+# Basic barplot:
+ggplot(weekly_donations, aes(x=committee_name, y=csum)) + 
+  geom_bar(stat='identity')+
+      theme(axis.text.x=element_text(angle=90,hjust=1))+
+    labs(title="{closest_state}") +
+    transition_states(week)
+# 
+# 
+# ggplot(df %>% 
+#          complete(t, nesting(f, x), fill=list(y=0)) %>% 
+#          arrange(t) %>%  
+#          group_by(x,f) %>%
+#          mutate(y_cum = cumsum(y)), 
+#        aes(x=x, y=y_cum, fill=f)) +
+#   geom_col() + 
+#   labs(x=NULL, y=NULL, fill=NULL, title="{closest_state}") +
+#   transition_states(t, transition_length = 2, state_length = 1) +
+#   enter_fade() + ease_aes('sine-in-out') + 
+#   theme_bw() +
+#   scale_y_continuous(breaks=0:10)
+```
 
