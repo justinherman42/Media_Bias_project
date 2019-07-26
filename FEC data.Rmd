@@ -1,0 +1,93 @@
+---
+title: "Untitled"
+author: "Justin Herman"
+date: "7/26/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(stringsAsFactors = FALSE)
+```
+
+
+
+
+
+```{r,echo=FALSE,warning=F,message=F}
+library(tidyverse)
+library(dplyr)
+library(readxl)
+library(knitr)
+library(kableExtra)
+booker_only <- as.data.frame(read.csv('Tulsi_Inslee_castro_Yang.csv'), stringsAsFactors = FALSE)
+df2 <- as.data.frame(read.csv('booker_Biden_beto_klobocher.csv'), stringsAsFactors = FALSE)
+df3 <- as.data.frame(read.csv('Warren_buttigeg_Harris_Gillibrand.csv'), stringsAsFactors = FALSE)
+df4 <- as.data.frame(read.csv('bernie_booker.csv'), stringsAsFactors = FALSE)
+
+df4 <- df4 %>% 
+    filter(committee_name%in%c("BERNIE 2020") )
+
+all_cand_df<- rbind(booker_only,df2,df3,df4)
+
+all_cand_df <- all_cand_df %>% 
+    arrange(desc(contributor_aggregate_ytd))
+```
+
+
+# Looking into FEC Individual level fundraising for Democratic Party
+
+The FEC mandates qaurterly reports to track the individual contributions into democratic candidates accounts.  Caps are given on individual level contributions at 2800 per year.  Throughout the report there are conduits, individuals that act on behalf of other people, to give a donation to a candidate.  These conduits aren't restricted by the 2800$ level, aas long as they dont havee discretion over where the funds go. I use some regular expressions to better categorize the occupation self identification of indviduals in the FEC data.  My intent, is to really look at how much corporate influence really exists in these donations.  What I have done, is create a new occupation column, which tracks and categorizes occuaptions based upon corporate structres of power.  I.E looking at the FEC data you would find exmaples of the words "C.E.O" "Chief executive officer" "cheif officer" "Chief executive".  I bundle all of these roles into a singular role of CEO.  Other Self-reporting words like "Founder","EXECUTIVE DIRECTOR", and "President" are also representative of those in charge of their organization, so I add them into this category as well.  From there I step down the corporate ladder and attempt to identify all general C level executives as a singular category.  For example: the term CEO shows up 1700 times in the current FEC reports, however, the term CEO shows up in over 84 other combinations, which are not captured in that 1700. 
+
+
+```{r,echo=F}
+
+library(xtable)
+#Function take col and creates filtered cross tab of counts greater than 1
+cross_tab_counts <- function(df,col){
+#    col <- get(col)
+#    print(col)
+    table1 <- sort(table(col))
+    my_names <- names(table1[table1>1])
+    new_df <- df %>% 
+    filter(col %in% my_names)
+    return(new_df)
+}
+
+#sort(table(df$contributor_occupation),decreasing=TRUE )
+
+multiple_donations <- cross_tab_counts(all_cand_df,all_cand_df$contributor_name)
+
+
+## what types of fields are donating
+occupation_tab <- sort(table(all_cand_df$contributor_occupation),decreasing = TRUE)
+#occupation_tab
+#names(table(all_cand_df$contributor_occupation))
+occupations <- names(table(all_cand_df$contributor_occupation))
+
+
+list_names <- c(occupations[str_detect(occupations,"CEO")])
+all_ceo <- all_cand_df %>% 
+    filter(all_cand_df$contributor_occupation%in% list_names )
+
+new_tab <- sort(table(all_ceo$contributor_occupation),decreasing = TRUE)
+new_tab_df <- as.data.frame(new_tab[1:10])
+colnames(new_tab_df) <- c('different_names','counts')
+kable(new_tab_df)
+
+# my_names <- names(table(all_ceo$contributor_occupation))
+# my_vals <- unname(new_tab)
+# 
+# vals_print <- paste(my_names,my_vals,sep=":")
+# #kable(vals_print)
+# vals_print2 <- paste(vals_print, collapse= ", ")
+# 
+# library(pander)
+# 
+# pander::pander(as.data.frame(vals_print2),split.cell = 40, split.table = Inf)
+```
+
+
+<br /> <br />
+Above I print out the top 10 uses of the term CEO, but as mentioned there are over 80 combinations.  Capturing these 80 combinations alone brings our CEO count from 1713- 2163. about 25% increase in correctly capturing this occupation.
+
