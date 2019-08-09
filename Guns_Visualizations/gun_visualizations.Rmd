@@ -163,22 +163,29 @@ ggplotly(c)
 d <- ggplot(guns,aes(x=date,y=total_victims, col=president, label=total_victims,size=total_victims, group = 1,text = summarytext)) +
   geom_smooth(method='lm',formula=y~x)+
   geom_point(stat="identity",fill="black")+
-   theme(legend.position="none")
+   theme(legend.position="none")+
+   ggtitle("Mass Shooting by presidency")
+  
 
 ## time plot showing victems wihtout Vegas
 e <- ggplot(minus_lv,aes(x=date,y=total_victims, col=president, label=total_victims,size=total_victims, group = 1,text = summarytext )) +
   geom_smooth(method='lm',formula=y~x)+
   geom_point(stat="identity",fill="black")+
-  theme(legend.position="none")
+  theme(legend.position="none")+
+   ggtitle("Mass Shooting by presidency")
 
 
 
-subplot(ggplotly(d,tooltip = c('text',"label",'x','president')),ggplotly(e,tooltip = c('text',"label",'x','president')))
+mass_shooting <- subplot(ggplotly(d,tooltip = c('text',"label",'x','president')),ggplotly(e,tooltip = c('text',"label",'x','president'))) %>% 
+  layout(annotations = list(
+ list(x = 0 , y = 1.05, text = "Including Las Vegas", showarrow = F, xref='paper', yref='paper'),
+  list(x = .8 , y = 1.05, text = "Excluding Las Vegas", showarrow = F, xref='paper', yref='paper'))
+)
 
 ggsave("myplot.pdf")
 Sys.setenv("plotly_username"="justinherman42")
 Sys.setenv("plotly_api_key"="1MPl8MFGmpgXWhC5m6C7")
-api_create(ggd, filename = "D")
+api_create(mass_shooting, filename = "Visualizing mass shooting by president")
 
 ```
 
