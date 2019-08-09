@@ -27,14 +27,14 @@ library(lubridate)
 library(gganimate)
 library(cowplot)
 library(plotly)
-guns <- read.csv("https://raw.githubusercontent.com/justinherman42/Media_Bias_project/master/Guns_Visualizations/csv_files/Mother%20Jones.csv")
-guns
+guns <- read.csv("Mother Jones.csv")
+guns 
+
 ```
 
 ```{r,echo=F}
-### General data Manipulations
 
-## convert Date to Date type
+## make date cool
 guns <- guns%>% 
     mutate(date=lubridate::mdy(date))
 
@@ -43,7 +43,7 @@ guns$president<- cut(guns$year,
                    breaks=c(1980,1988,1992,2000,2008,2016,2020), 
                    labels=c("Reagan","BushSr","Clinton","Bushjr","Obama","Trump"))
 
-### Build weights and build numeric column based on weights that normalizes each presidency to 1 term
+### Normalize Date to per term 
 days_in_office_Trump <- as.numeric(Sys.Date()-as.Date("2017-01-20"))
 guns$weights<- 1
 guns$weights[guns$president=="Trump"] <- 1/(days_in_office_Trump/(365*4))
@@ -52,28 +52,14 @@ guns$weights[guns$president=="Reagan"] <- .5
 guns$weights[guns$president=="Clinton"] <- .5
 guns <- guns %>% 
     mutate(total_victims_per_term= total_victims*weights)
-#guns <- as.data.frame(guns)
 
+guns <- as.data.frame(guns)
 ##make other race column inclusive of (-,unclear/other)
-guns[,"race"] = toupper(guns[,"race"])
 guns$race <- trimws(toupper(as.character(guns$race)))
-guns$race[guns$race %in% c("OTHER","-","UNCLEAR",NA) ] <- "OTHER/ UNKOWN"
-
-## Make shorter summary column for plotly graphs
-y=1
-for (x in guns$summary){
-  guns$summarytext[y] <- paste(substr(x,1,75))
-   y=y+1
-  }
-
-## build df without vegas
-minus_lv <- guns %>% 
-    filter(injured!=546	)
-```
+guns$race[guns$race %in% c("OTHER","-","UNCLEAR",NA) ] <- "OTHER/ Unkown"
 
 
 
-```{r}
 ## build bar graph with vegas
 with_lv <- ggplot(guns,  aes(x=president, y=total_victims)) + 
   geom_bar(stat='identity',fill="steelblue")+
@@ -82,6 +68,9 @@ with_lv <- ggplot(guns,  aes(x=president, y=total_victims)) +
   ggtitle("With Vegas")+
    labs(x = "", y = "total # victims")
 
+## build df without vegas
+minus_lv <- guns %>% 
+    filter(injured!=546	)
 ## build bar grpah wtihout vegas
 without_lv <- ggplot(minus_lv,  aes(x=president, y=total_victims)) + 
   geom_bar(stat='identity',fill="steelblue")+
@@ -106,15 +95,19 @@ normalized_without_lv <- ggplot(minus_lv,  aes(x=president, y=total_victims_per_
    labs(x = "", y = "total # victims")
 
 
-# ggplot(guns, aes(x=president, y=total_victims_per_term)) + 
-#   geom_segment(aes(x = 0, y = president, xend = total_victims_per_term, yend = president), color = "grey50")+
-#   geom_point()
-#   
-#       theme(axis.text.x=element_text(angle=90,hjust=1),
-#             legend.position="none")+
-#     ggtitle("Per Term With Vegas")
+ggplot(guns, aes(x=president, y=total_victims_per_term)) + 
+  geom_segment(aes(x = 0, y = president, xend = total_victims_per_term, yend = president), color = "grey50")+
+  geom_point()
+  
+      theme(axis.text.x=element_text(angle=90,hjust=1),
+            legend.position="none")+
+    ggtitle("Per Term With Vegas")
 
 
+
+ggplot(ohio_top25, aes(percollege, county)) +
+        geom_segment(aes(x = 0, y = county, xend = percollege, yend = county), color = "grey50") +
+        geom_point()
 
 
 ## plot both graphs
@@ -135,7 +128,14 @@ a <- ggplot(minus_lv, aes(x=race, y=total_victims,fill="steelblue")) +
   geom_bar(stat='identity',color="steelblue")+
       theme(axis.text.x=element_text(angle=90,hjust=1),legend.position="none") +
   coord_flip()
+
 ggplotly(a)
+
+
+guns[,"race"] = toupper(guns[,"race"])
+
+ggplot(minus_lv, aes(x=race, y=total_victims)) + 
+  geom_bar(stat='identity')
 
 
 b <- ggplot(guns, aes(x=president, y=total_victims_per_term)) + 
@@ -156,30 +156,32 @@ c <- ggplot(guns, aes(x=president, y=total_victims_per_term,fill=race)) +
   coord_flip()
 
 ggplotly(c)
-
+ggplot(df, aes(x = date, y = total_victims_per_term)) + 
+  geom_point(aes(color = cyl, size = qsec), alpha = 0.5) +
+  scale_color_manual(values = c("#00AFBB", "#E7B800", "#FC4E07")) +
+  scale_size(range = c(0.5, 12))  # Adjust the range of points size
 
 
 ## time plot showing victems
-d <- ggplot(guns,aes(x=date,y=total_victims, col=president, label=total_victims,size=total_victims, group = 1,text = summarytext)) +
-  geom_smooth(method='lm',formula=y~x)+
+d <- ggplot(guns,aes(x=date,y=total_victims, col=president, label=total_victims,size=total_victims)) +
   geom_point(stat="identity",fill="black")+
    theme(legend.position="none")
 
 ## time plot showing victems wihtout Vegas
-e <- ggplot(minus_lv,aes(x=date,y=total_victims, col=president, label=total_victims,size=total_victims, group = 1,text = summarytext )) +
-  geom_smooth(method='lm',formula=y~x)+
+e <- ggplot(minus_lv,aes(x=date,y=total_victims, col=president, label=total_victims,size=total_victims)) +
   geom_point(stat="identity",fill="black")+
   theme(legend.position="none")
+ggd <- ggplotly(d)
+ggd
 
-
-
-subplot(ggplotly(d,tooltip = c('text',"label",'x','president')),ggplotly(e,tooltip = c('text',"label",'x','president')))
-
+subplot(ggplotly(d),ggplotly(e))
 ggsave("myplot.pdf")
+
+
 Sys.setenv("plotly_username"="justinherman42")
 Sys.setenv("plotly_api_key"="1MPl8MFGmpgXWhC5m6C7")
-api_create(ggd, filename = "D")
 
+api_create(ggd, filename = "D")
 ```
 
 
