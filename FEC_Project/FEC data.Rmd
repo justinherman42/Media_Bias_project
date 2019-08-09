@@ -1,0 +1,482 @@
+---
+title: "Untitled"
+author: "Justin Herman"
+date: "7/26/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(stringsAsFactors = FALSE)
+```
+
+
+
+
+
+```{r,echo=FALSE,warning=F,message=F}
+library(tidyverse)
+library(dplyr)
+library(readxl)
+library(knitr)
+library(kableExtra)
+library(xtable)
+library(lubridate)
+library(gganimate)
+```
+
+
+```{r,echo=F}
+## Functions for report 
+#Function take col and creates filtered cross tab of counts greater than 1
+# Idea here is to identify donors who donate to multiple candidates
+cross_tab_counts <- function(df,col){
+#    col <- get(col)
+#    print(col)
+    table1 <- sort(table(col))
+    my_names <- names(table1[table1>1])
+    new_df <- df %>% 
+    filter(col %in% my_names)
+    return(new_df)
+}
+
+## Function changes occupation based upon a regular expression. 
+## Creates column to note if change was made,stores old names, returns DF
+cluster_jobs <- function(df,reg_express,replacement_val){    
+   
+    ## Populate new col with imputed value
+    df$clustered_jobs[str_detect(df$clustered_jobs,reg_express)] <- replacement_val
+    ## Build column to track if change was made to occupation 
+    df <- df %>% 
+            mutate(job_changed = ifelse(clustered_jobs == job_position,'0','1'))
+    return(df)
+}
+```
+
+```{r,echo=FALSE,warning=F,message=F}
+
+## create list to import candidate level filenames
+list_csv <-c( paste(as.character(2:25),".csv", sep=""))
+old_df <-  as.data.frame(read.csv('1.csv'), stringsAsFactors = FALSE)
+
+## filter for only individual level donors
+old_df <- old_df %>% 
+  filter(X_ind=="IND")
+
+## Loop to join all FEC individual csv FEC files together 
+for (x in list_csv){
+  new_df <- as.data.frame(read.csv(x), stringsAsFactors = FALSE)
+  new_df <- new_df %>% 
+    filter(X_ind=="IND")
+  old_df <- rbind(old_df,new_df)
+}
+
+## select columns we want, create date column, filter out salries and other "donations"
+final_df <- old_df %>% 
+  filter(donation_to_date_total>0) %>% 
+  mutate(Date=as.Date(paste(substring(Date,1,4),substring(Date,5,6),substring(Date,7,8),sep="-")),
+         Contributor_name = paste(Name2,Name1,sep=" ")
+         ) %>% 
+  select(comm_id,Contributor_name,address,city,state,zipcode,Date,donation_amt,donation_to_date_total,unkown2,employer,job_position) 
+
+final_df[1:10,]
+
+```
+
+# Looking into FEC Individual level fundraising for Democratic Party
+
+The FEC requires candidates file their contributions for the 2020 elections with the agency.  The data is uploaded as forms, which the FEC then cleans and adds to csv files.  The data seems like a treasure trove of information for anyone interested in politics.  Polls get tons of attention from week to week, but the news generally lacks any deep analysis of the FEC filings.  The most reporting the American public ever gets, is big headline numbers advertising total number of donations and total amount donated.  But the data is rich with self-identifying donor traits.  People identify the industry they work in, their position in that industry, and where they are located. We know money acts as a proxy for electoral success and we know in the 2020 primary almost all candidates have sworn off contributions from lobbyists.  On the surface, this is a noble attempt by the democratic candidates to prove they aren't influenced by big corporations.  However, digging below the surface, corporate influence clearly finds its way through other means than just lobbyists.  My idea is to look through the FEC data to find which candidates are receiving money from corporate level executives. Which candidates are receving money from corporate executives, when are they recieving it and where are they recieving it can all be answered.  We can also see if corporate executives are more liekly to attempt to capture multiple candidates with donations and which candidates are receiving money from the same executives. I mean it when I say this a is a treasuretrove of unexplored data.I will explain my process for analysis shortly, but first let me address some boring data integrity issues.  Feel free to skip the next section, it's there to outline my assumptions in data collection for anyone who distrusts my analysis. 
+
+# Data integrity concerns
+
+The FEC mandates quarterly reports to track the individual contributions into democratic candidate’s accounts. As a disclaimer It seems the engineers on the FEC website are slowly going through the individual files on the candidates and adding them to the Big table located on FEC pages [here](https://www.fec.gov/data/receipts/individual-contributions/?two_year_transaction_period=2020&min_date=01%2F01%2F2019&max_date=12%2F31%2F2019). Originally, I pulled the data from the above link, but the raw data is available on the website in full and some of the candidates q2 FEC filings hadn't been added to the above database.  Therefore, for this report I just grabbed all the individual level csv files and did my own manipulation on the data.  It seems I keep several individual level contributors’ (less than .1%) for each candidate that were discarded for whatever reason by the FEC data engineers. The FEC filings aren't representative of the whole population of donors, as reporting under 200 \$ isn't mandatory. We know that all these candidates have reached 100k contributors, yet most candidates in the database have less than 100k donations listed.  Some other peripheral information, caps are given on individual level contributions at 2800 per year.  Throughout the report there are some people who exceed these limits, they are known as conduits.  Conduits are individuals that act on behalf of other people to give a donation to a candidate.  These conduits aren't restricted by the \$ 2800  level if they exercise no discretion over where the funds go. With that cleared up let’s get started
+
+Below I make several categorizing assumptions in my data manipulation operations.  The regex approach I took to clustering these groups will absolutely include some examples that do not actually represent the categorization of job title that I have made.  RegEX is a brute force attempt to categorize the occupations algorithmically. However, as I have tracked the original job occupation, you can see overwhelmingly that these job titles are correctly identified.  I display tables for each new clustered position, so that the reader understands that the approach is largely effective. My aggregated DF, is at my [website](git), I have categorized all job titles that have been changed with a binomial field to track them.  Please feel free to look at the assumptions I made and the false captures in the clusters. if you would like to take this on in your own analysis, or perhaps develop your own clusters, please feel free to do so as well.  The original unedited  job titles  are still rpesent in the dataset.  
+
+# What's the plan?
+
+I am going to use some regular expressions to cluster and capture job titles from the FEC data.We want to explore corporate influence, but there are so amny different combinations of the same job title, that attmepting to develop visualizations on the data is useless. My solution is to create new clustered occupation columns, which tracks and categorize occupations based upon corporate structures of power.  I.E looking at the FEC data you would find examples of the words "C.E.O" "Chief executive officer" "chief officer" "Chief executive".  I bundle all these roles into a singular role of CEO.  Other Self-reporting words like "Founder”, “EXECUTIVE DIRECTOR", and "President" are also representative of those in charge of their organization, so they are also labeled as C.E.O.  From there I step down the corporate ladder and attempt to identify all general C level executives as c level executives and place the rest of executive postions into a category of eXECS.  This was all done in careful order so as to preserrve the hierarchy of attempting to capture postions correctly.  For instance, Executive secretary's were captured first as secretary, so as to not show up as executive level job positions.  Overall I made several other clusters and the goal is to fully analyze and compare the field across all these clusters, but for this report we will focus on Corporate power structure.    
+
+# Let's Walkthrough our CEO Clustering
+
+The term CEO shows up 2902 times in the current FEC reports, however, the term CEO shows up over 3500 times throughout the dataset.  Below I print the top 3200 uses of the term.  You can tell The Regex did a great job in capturing terms that belong categorized as CEO.  We would display all the captures usages, but for the sake of screen time I think realizing that well over 95% of captures are clearly identified suffices
+
+<br /> <br />
+
+
+```{r,echo=F}
+multiple_donations <- cross_tab_counts(final_df,final_df$Contributor_name)
+## what types of fields are donating
+occupation_tab <- sort(table(final_df$job_position),decreasing = TRUE)
+
+#names(table(all_cand_df$contributor_occupation))
+occupations <- names(table(final_df$job_position))
+list_names <- c(occupations[str_detect(occupations,"CEO")])
+all_ceo <- final_df %>% 
+    filter(final_df$job_position%in% list_names )
+new_tab <- sort(table(all_ceo$job_position),decreasing = TRUE)
+#sum(new_tab)
+#length(new_tab)
+new_tab_df <- as.data.frame(new_tab[1:20])
+colnames(new_tab_df) <- c('different_names','counts')
+kable(new_tab_df)
+```
+
+
+```{r,echo=F}
+ ## Build new_jobs_col
+final_df <- final_df %>% 
+  mutate(job_position= toupper(job_position))  %>% 
+  mutate(clustered_jobs = job_position) 
+
+## create Date column
+
+## Job Clustering
+df_5 <- cluster_jobs(final_df,"CEO","CEO")
+df_5$clustered_jobs <- as.character(df_5$clustered_jobs)
+df_5$clustered_jobs[is.na(df_5$clustered_jobs)] <- "Not selected"
+
+## Executive level positions
+## WORDS INTENTIONALLY ARE REPLACED WITH SOME LOWERCASE LETTERS
+
+df_5 <- cluster_jobs(df_5,"CHIEF EXECUTIVE OFFICER","CEO")
+df_5 <- cluster_jobs(df_5,'CHIEF \\w* OFFICER',"C LEVEL_eXECS")
+df_5 <- cluster_jobs(df_5,'^C[A-D|F-Z]O\\b',"C LEVEL_eXECS")
+df_5 <- cluster_jobs(df_5,'/C[A-D|F-Z]O\\b',"C LEVEL_eXECS")
+df_5 <- cluster_jobs(df_5,"MANAGING PARTNER","CEO")
+df_5 <- cluster_jobs(df_5,'EVP',"C LEVEL_eXECS")
+df_5 <- cluster_jobs(df_5,'EXECUTIVE VP',"C LEVEL_eXECS")
+df_5 <- cluster_jobs(df_5,'^EXECUTIVE$',"eXECS")
+df_5 <- cluster_jobs(df_5,'^EXECUTIVE OFFICER',"C LEVEL_eXECS")
+df_5 <- cluster_jobs(df_5,'EXECUTIVE VICE PRESIDENT',"C LEVEL_eXECS")
+df_5 <- cluster_jobs(df_5,'MANAGING DIRECTOR',"C LEVEL_eXECS")
+df_5 <- cluster_jobs(df_5,'SVP',"C LEVEL_eXECS")
+df_5 <- cluster_jobs(df_5,'^PRESIDENT\\b',"CEO")
+df_5 <- cluster_jobs(df_5,'^FOUNDER\\b','CEO')
+df_5 <- cluster_jobs(df_5,'EXECUTIVE DIRECTOR','CEO')
+df_5 <- cluster_jobs(df_5,'FINANCIAL DIRECTOR','C LEVEL_eXECS')
+df_5 <- cluster_jobs(df_5,'EXECUTIVE RECRUITER','rECRUITER')
+df_5 <- cluster_jobs(df_5,'EXECUTIVE SEARCH','rECRUITER')
+df_5 <- cluster_jobs(df_5,'EXECUTIVE ASSISTANT','EX aSSISTANT')
+df_5 <- cluster_jobs(df_5,'EXECUTIVE ADMINISTRATOR','EX aSSISTANT')
+df_5 <- cluster_jobs(df_5,'EXECUTIVE COORDINATOR','EX aSSISTANT')
+df_5 <- cluster_jobs(df_5,'CORPORATE EXECUTIVE','C LEVEL_eXECS')
+df_5 <- cluster_jobs(df_5,'EXECUTIVE$','eXECS')
+df_5 <- cluster_jobs(df_5,'^VP','Vp roles')
+df_5 <- cluster_jobs(df_5,'SVP',"C LEVEL_eXECS")
+df_5 <- cluster_jobs(df_5,'EXEC.*DIR','CEO')
+df_5 <- cluster_jobs(df_5,'VP\\b','Vp roles')
+df_5 <- cluster_jobs(df_5,'VICE PRESIDENT','Vp roles')
+df_5 <- cluster_jobs(df_5,'^DIRECTOR','eXECS')
+df_5 <- cluster_jobs(df_5,'^PARTNER','eXECS')
+
+## LEGAL
+df_5 <- cluster_jobs(df_5,'LAWYER|ATTORNEY','ATTORNEY')
+
+## Academia
+df_5 <- cluster_jobs(df_5,'PROFESSOR|TEACHER|SCHOLAR|LECTURER|DOCTORAL|INSTRUCTOR','ACADEMIA')
+df_5 <- cluster_jobs(df_5,'EDUC','ACADEMIA')
+df_5 <- cluster_jobs(df_5,'STUDENT','STUDENT')
+df_5 <- cluster_jobs(df_5,'LIBRAR','LIBRARIAN')
+## Unemployed self employed
+df_5 <- cluster_jobs(df_5,'^SELF','SELF EMPLOYED')
+df_5 <- cluster_jobs(df_5,'^NOT-EMPLOYED$','NOT EMPLOYED')
+## IT JOBS
+df_5 <- cluster_jobs(df_5,'^SOFTWARE','It FIELD')
+df_5 <- cluster_jobs(df_5,'PROGRAMMER','It FIELD')
+df_5 <- cluster_jobs(df_5,'^IT','It FIELD')
+df_5 <- cluster_jobs(df_5,'^WEB','It FIELD')
+## CREATIVE 
+df_5 <- cluster_jobs(df_5,'DESIGNER|ARTIST|MUSICIAN|FILM|CREATIVE|PHOTO|EDITOR|WRITER','CREATIVE')
+df_5 <- cluster_jobs(df_5,'^(AUTHOR|ACTOR|ACTRESS)','CREATIVE')
+## FINANCIAL JOBS
+df_5 <- cluster_jobs(df_5,'^(FINANCIAL|INVESTOR|INVESTMENT|CAPITAL|ENTREPRENEUR|FINANCE)','FINANCIAL SECTOR')
+## MILITARY AND LAW ENFORCEMENT
+df_5 <- cluster_jobs(df_5,'MILITARY|ARMY|LAW ENFORCEMENT|FIRE','LAW ENFORCEMENT')
+## Labor 
+df_5 <- cluster_jobs(df_5,'^(PIPE|STEAM|ELECTR|UNION)','LABORER')
+df_5 <- cluster_jobs(df_5,'^(TRUCK|DRIVER)','DRIVER')
+df_5 <- cluster_jobs(df_5,'CONTRACTOR','CONTRACTOR')
+## SCIENCE AND MEDICINE
+df_5 <- cluster_jobs(df_5,'PHYSICIAN|MD|DOCTOR','PHYSICIAN')
+df_5 <- cluster_jobs(df_5,'SCIENTIST|PHYSICIST|CHEMIST','SCIENTIST')
+df_5 <- cluster_jobs(df_5,'PSY|SOCIAL WORKER|SOCIAL WORK','MENTAL HEALTH')
+df_5 <- cluster_jobs(df_5,'^RN$','RN/Nurse')
+df_5 <- cluster_jobs(df_5,'NURSE','RN/Nurse')
+## SKILLED LABOR
+df_5 <- cluster_jobs(df_5,'ANALYST|ENGINEER|ARCHITECT','ANALYST/ENGINEER/ARCHITECT')
+df_5 <- cluster_jobs(df_5,'CPA|ACCOUNTANT|ACCOUNTING|BOOKKEEPER','ACCOUNTANT')
+## Real estate
+df_5 <- cluster_jobs(df_5,'REALTOR|REAL ESTATE','REAL ESTATE')
+
+## Secretary
+df_5 <- cluster_jobs(df_5,'SECRETARY','SECRETARY')
+df_5 <- cluster_jobs(df_5,'\\w ASSISTANT','SECRETARY')
+```
+
+
+
+Above I printed out the top 20 uses of the term CEO, there are 128 combinations of the term CEO that show up and we now have gone from identifying 2902 CEO's to 3533, about a 20% increase.  The cool thing is, we can expand from here. Now  I add in similar terms like mentioned in introductory paragraph. In the end we now have 4459 repsondents that represent the actual role of CEO.  I expanded this clustering to create some other fields as well.  I bundled legal,heatlh, academic,blue collar jobs into their own aggregated categories. But for the purpose of this article, we will attempt to simply look at the CEO, execs, and c lvel execs.  To get an idea of what the rolls look like in each of these categories, lets print tables of each category, by original job title.
+
+## CEO
+
+we have increased our CEO captures from 2902 to 7387 and you can tell the regex has been highly effective. Below I print the top 25 captured terms which make up 6858 of our total captures.  You would be hard pressed to argue any of these captures don't belong labeled as CEO.
+```{r,echo=F}
+all_ceo <- df_5 %>% 
+    filter(df_5$clustered_jobs=="CEO")
+new_tab <- sort(table(all_ceo$job_position),decreasing = TRUE)
+#sum(new_tab)
+new_tab_df <- as.data.frame(new_tab[1:25])
+#sum(new_tab_df$Freq)
+colnames(new_tab_df) <- c("Different_CEO_Titles","Count")
+kable(new_tab_df,caption = 'Top 6858 recategorized as CEO with original unedited job title.')
+```
+
+Now that I am done clustering CEO we can take a step down the ladder to executive level jobs followed by c level executives
+
+## Executives
+
+We have increased our EXECUTIVE captures from 1516 to over 7748. 
+
+```{r,echo=F}
+all_execs <- df_5 %>% 
+    filter(df_5$clustered_jobs=="eXECS")
+new_tab <- sort(table(all_execs$job_position),decreasing = TRUE)
+#sum(new_tab)
+new_tab_df <- as.data.frame(new_tab[1:15])
+colnames(new_tab_df) <- c("Different_ExECUTIVE_Titles","Count")
+#sum(new_tab_df$Count)
+kable(new_tab_df,caption = 'Top 5608 recategorized as executive  with original unedited job title.')
+```
+
+## C-Level_Execs
+
+The last high level clustering I performed was C-level executives.  Arguably some of these positions could have been identified in the CEO cluster(Managing Director), but I decided to keep them seperate. 
+
+```{r,echo=F}
+all_C_LEVEL<- df_5 %>% 
+    filter(df_5$clustered_jobs=="C LEVEL_eXECS")
+new_tab <- sort(table(all_C_LEVEL$job_position),decreasing = TRUE)
+new_tab_df <- as.data.frame(new_tab[1:25])
+colnames(new_tab_df) <- c("Different_C_level_Titles","Count")
+kable(new_tab_df,caption = 'Top 997 uses of C-level executive title with original unedited job title.')
+```
+
+## Summary of Data Manipulation
+ 
+
+##Full table
+```{r,echo=F}
+sort(table(df_5$clustered_jobs),decreasing=TRUE)[0:50]
+all_ceo$date
+
+##build cartesian df
+allnames <- data.frame(rep(unique(all_ceo$comm_id),27))
+build_dates <- rep(seq(as.Date("2018-12-31	"), as.Date("2019-07-01	"), by = "week"),13)
+build_dates <- sort(as.Date(build_dates))
+cart_df <- as.data.frame(cbind(allnames,build_dates))
+colnames(cart_df) <- c("comm_id","week")
+
+## build our df
+#all_ceo$Date <-as.Date(all_ceo$contribution_receipt_date) 
+all_ceo$comm_id <- as.factor(all_ceo$comm_id)
+all_ceo <- all_ceo %>% 
+  filter(Date> as.Date("2018-12-31"))
+all_ceo
+
+##cartesian join 
+aa <- plyr::join(cart_df,all_ceo,type="left", by=c("comm_id"))
+weekly_donations <- aa %>% group_by(week = cut(Date,"week"),comm_id,) %>% summarise(value = sum(donation_amt)) %>% 
+  complete(comm_id)
+weekly_donations[is.na(weekly_donations)] <- 0
+weekly_donations$Money_Raised_From_CEO <- ave(weekly_donations$value, weekly_donations$comm_id, FUN=cumsum)/1000000
+weekly_donations$quarter <- ifelse(as.Date(weekly_donations$week)< as.Date('2019-04-01'),1,2)
+weekly_donations$week <- as.Date(weekly_donations$week)
+
+# animated  barplot:
+p <- ggplot(weekly_donations, aes(x=comm_id, y=Money_Raised_From_CEO,color=quarter)) + 
+  geom_bar(stat='identity')+
+      theme(axis.text.x=element_text(angle=90,hjust=1))+
+    labs(title="Cumulative CEO Campaign Donations {closest_state}") +
+    transition_states(week)+
+  xlab("Money Raised from CEO's")
+
+animate(p+coord_flip(), renderer = gifski_renderer(loop = F))
+
+```
+
+```{r}
+##build cartesian df
+allnames <- data.frame(rep(unique(all_ceo$comm_id),27))
+build_dates <- rep(seq(as.Date("2018-12-31	"), as.Date("2019-07-01	"), by = "week"),13)
+build_dates <- sort(as.Date(build_dates))
+cart_df <- as.data.frame(cbind(allnames,build_dates))
+colnames(cart_df) <- c("comm_id","week")
+
+## build our df
+#all_ceo$Date <-as.Date(all_ceo$contribution_receipt_date) 
+all_C_LEVEL$comm_id <- as.factor(all_C_LEVEL$comm_id)
+all_C_LEVEL <- all_C_LEVEL %>% 
+  filter(Date> as.Date("2018-12-31"))
+
+
+##cartesian join 
+aa <- plyr::join(cart_df,all_C_LEVEL,type="left", by=c("comm_id"))
+weekly_donations <- aa %>% group_by(week = cut(Date,"week"),comm_id,) %>% summarise(value = sum(donation_amt)) %>% 
+  complete(comm_id)
+weekly_donations[is.na(weekly_donations)] <- 0
+weekly_donations$Money_Raised_From_CEO <- ave(weekly_donations$value, weekly_donations$comm_id, FUN=cumsum)/1000000
+weekly_donations$quarter <- ifelse(as.Date(weekly_donations$week)< as.Date('2019-04-01'),1,2)
+weekly_donations$week <- as.Date(weekly_donations$week)
+
+# animated  barplot:
+p1 <- ggplot(weekly_donations, aes(x=comm_id, y=Money_Raised_From_CEO,color=quarter)) + 
+  geom_bar(stat='identity')+
+      theme(axis.text.x=element_text(angle=90,hjust=1))+
+    labs(title="Cumulative CEO Campaign Donations {closest_state}") +
+    transition_states(week)+
+  xlab("Money Raised from C Level Execs")
+
+animate(p+coord_flip(), renderer = gifski_renderer(loop = F))
+```
+
+
+```{r}
+##build cartesian df
+allnames <- data.frame(rep(unique(all_ceo$comm_id),27))
+build_dates <- rep(seq(as.Date("2018-12-31	"), as.Date("2019-07-01	"), by = "week"),13)
+build_dates <- sort(as.Date(build_dates))
+cart_df <- as.data.frame(cbind(allnames,build_dates))
+colnames(cart_df) <- c("comm_id","week")
+
+## build our df
+#all_ceo$Date <-as.Date(all_ceo$contribution_receipt_date) 
+all_execs$comm_id <- as.factor(all_execs$comm_id)
+all_execs <- all_execs %>% 
+  filter(Date> as.Date("2018-12-31"))
+
+
+##cartesian join 
+aa <- plyr::join(cart_df,all_execs,type="left", by=c("comm_id"))
+weekly_donations <- aa %>% group_by(week = cut(Date,"week"),comm_id,) %>% summarise(value = sum(donation_amt)) %>% 
+  complete(comm_id)
+weekly_donations[is.na(weekly_donations)] <- 0
+weekly_donations$Money_Raised_From_CEO <- ave(weekly_donations$value, weekly_donations$comm_id, FUN=cumsum)/1000000
+weekly_donations$quarter <- ifelse(as.Date(weekly_donations$week)< as.Date('2019-04-01'),1,2)
+weekly_donations$week <- as.Date(weekly_donations$week)
+
+# animated  barplot:
+p2 <- ggplot(weekly_donations, aes(x=comm_id, y=Money_Raised_From_CEO,color=quarter)) + 
+  geom_bar(stat='identity')+
+      theme(axis.text.x=element_text(angle=90,hjust=1))+
+    labs(title="Cumulative Executive Campaign Donations {closest_state}") +
+    transition_states(week)+
+  xlab("Money Raised from C Level Execs")
+
+animate(p+coord_flip(), renderer = gifski_renderer(loop = F))
+```
+
+
+
+```{r,echo=F}
+all_corporate_influence <- df_5 %>% 
+    filter(df_5$clustered_jobs%in%c("CEO","eXECS","C LEVEL_eXECS"))
+allnames <- data.frame(rep(unique(all_ceo$comm_id),27))
+build_dates <- rep(seq(as.Date("2018-12-31	"), as.Date("2019-07-01	"), by = "week"),13)
+build_dates <- sort(as.Date(build_dates))
+cart_df <- as.data.frame(cbind(allnames,build_dates))
+colnames(cart_df) <- c("comm_id","Date")
+
+## build our df
+#all_ceo$Date <-as.Date(all_ceo$contribution_receipt_date) 
+all_corporate_influence$comm_id <- as.factor(all_corporate_influence$comm_id)
+all_corporate_influence <- all_corporate_influence %>% 
+  filter(Date> as.Date("2018-12-31"))
+
+
+##cartesian join 
+all_corporate_influence$Date <-as.Date(cut(all_corporate_influence$Date,"week")) 
+aa <- plyr::join(all_corporate_influence,cart_df,type="left", by=c("comm_id","Date"))
+weekly_donations <- aa %>% group_by(comm_id,Date) %>% 
+                          summarise(value = sum(donation_amt)/1000000) %>% 
+                          complete(comm_id,Date)
+weekly_donations[is.na(weekly_donations)] <- 0
+weekly_donations <- weekly_donations [!duplicated(weekly_donations),]
+weekly_donations <- weekly_donations %>% 
+  arrange(Date)
+weekly_donations$Money_Raised_From_CEO <- ave(weekly_donations$value, weekly_donations$comm_id, FUN=cumsum)
+weekly_donations$quarter <- ifelse(as.Date(weekly_donations$Date)< as.Date('2019-04-01'),1,2)
+
+# animated  barplot:
+p3 <- ggplot(weekly_donations, aes(x=comm_id, y=Money_Raised_From_CEO)) + 
+  geom_bar(stat='identity')+
+      theme(axis.text.x=element_text(angle=90,hjust=1))+
+    labs(title="Cumulative Executive Campaign Donations {closest_state}") +
+    transition_states(Date)
+
+animate(p3+coord_flip(), renderer = gifski_renderer(loop = F))
+
+```
+
+```{r}
+## Old datasets
+
+# booker_only <- as.data.frame(read.csv('Tulsi_Inslee_castro_Yang.csv'), stringsAsFactors = FALSE)
+# df2 <- as.data.frame(read.csv('booker_Biden_beto_klobocher.csv'), stringsAsFactors = FALSE)
+# df3 <- as.data.frame(read.csv('Warren_buttigeg_Harris_Gillibrand.csv'), stringsAsFactors = FALSE)
+# df4 <- as.data.frame(read.csv('bernie_booker.csv'), stringsAsFactors = FALSE)
+# df4 <- df4 %>% 
+#     filter(committee_name%in%c("BERNIE 2020") )
+# 
+# all_cand_df<- rbind(booker_only,df2,df3,df4)
+# 
+# all_cand_df <- all_cand_df %>% 
+#     arrange(desc(contributor_aggregate_ytd))
+
+
+
+## Extra clustering 
+
+# df_5$clustered_jobs[str_detect(df_5$clustered_jobs,'^FOUNDER\\b')]
+# df_5$clustered_jobs[str_detect(df_5$clustered_jobs,'INSTRUCTOR')] 
+# df_5$clustered_jobs[str_detect(df_5$clustered_jobs,'^IT')]
+# # PROGRAMMER, 
+# #sort(table(df_5$clustered_jobs[str_detect(df_5$clustered_jobs,'(LEGAL)')]),decreasing=TRUE )
+# #sort(table(df_5$clustered_jobs[str_detect(df_5$clustered_jobs,'^(PIPE|STEAM|ELECTR|UNION)')]),decreasing=TRUE )
+# #sort(table(df_5$clustered_jobs[str_detect(df_5$clustered_jobs,'^(FINANCIAL|INVESTOR|INVESTMENT|CAPITAL|ENTREPRENEUR)')]),decreasing=TRUE )
+# df_5$clustered_jobs[str_detect(df_5$clustered_jobs,'EDITOR' )
+
+
+
+kamala <- df_5 %>% 
+  filter(!clustered_jobs %in% c("CEO","eXECS","C LEVEL_eXECS")) 
+
+
+sum(kamala$donation_amt)
+
+
+kamala <- df_5 %>% 
+  filter(clustered_jobs %in% c("CEO","eXECS","C LEVEL_eXECS")) 
+
+
+sum(kamala$donation_amt)
+
+harris2 <- weekly_donations %>% 
+  filter(comm_id=="Harris")
+  
+sum(harris2$value)
+
+harriiss <- aa %>% 
+  filter(comm_id=="Harris")
+
+sum(harriiss$donation_amt)
+```
+
+
+
+```{r}
+read.csv("guns.csv")
+
+
+```
+
