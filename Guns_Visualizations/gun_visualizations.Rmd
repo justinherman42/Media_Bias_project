@@ -28,7 +28,7 @@ library(gganimate)
 library(cowplot)
 library(plotly)
 guns <- read.csv("https://raw.githubusercontent.com/justinherman42/Media_Bias_project/master/Guns_Visualizations/csv_files/Mother%20Jones.csv")
-guns
+
 ```
 
 ```{r,echo=F}
@@ -126,6 +126,33 @@ subplot(ggplotly(with_lv),ggplotly(without_lv),ggplotly(normalized_withlv),ggplo
 ```
 
 
+##timeline plot
+
+```{r}
+ggplot(guns,aes(x=date,y=0, col=total_victims, label=total_victims))+
+  labs(col="total_victims")+
+  theme_classic()+
+  geom_hline(yintercept=0, 
+                color = "black", size=0.3)
+
+
+#dislocations <- c(-1,1,-.5)#
+bubble_chart <- ggplot(guns,aes(x=date,y=total_victims, col=president, label=total_victims,size=total_victims)) +
+  geom_point(stat="identity")+
+   theme(axis.line=element_blank()
+         ,
+          axis.title.x=element_blank(),
+          axis.title.y=element_blank(),legend.position="none")+
+    #   geom_label(x = as.Date('1990-10-01'), y =400, label = "not working right") +
+  annotate("text",x = as.Date('2014-10-01'), y =550, label = "Las Vegas Shooting",arrow=arrow(), color = "red")+
+   annotate("segment",x = as.Date('2014-10-01'),xend=as.Date('2017-04-01'), y =550,yend=600,arrow=arrow(), color = "red")
+       
+ggplotly(bubble_chart)
+```
+
+
+
+
 ```{r}
 
 
@@ -138,32 +165,16 @@ a <- ggplot(minus_lv, aes(x=race, y=total_victims,fill="steelblue")) +
 ggplotly(a)
 
 
-b <- ggplot(guns, aes(x=president, y=total_victims_per_term)) + 
-  geom_bar(stat='identity')+
-      theme(axis.text.x=element_text(angle=90,hjust=1),
-            legend.position="none")+
-    ggtitle("Per Term With Vegas")+
-  coord_flip()
-
-ggplotly(b)
-
-
-c <- ggplot(guns, aes(x=president, y=total_victims_per_term,fill=race)) + 
-  geom_bar(stat='identity')+
-      theme(axis.text.x=element_text(angle=90,hjust=1),
-            legend.position="none")+
-    ggtitle("Per Term With Vegas")+
-  coord_flip()
-
-ggplotly(c)
-
-
 
 ## time plot showing victems
 d <- ggplot(guns,aes(x=date,y=total_victims, col=president, label=total_victims,size=total_victims, group = 1,text = summarytext)) +
   geom_smooth(method='lm',formula=y~x)+
   geom_point(stat="identity",fill="black")+
-   theme(legend.position="none")+
+   theme(axis.line=element_blank()
+         ,axis.title.x=element_blank(),
+          axis.title.y=element_blank(),legend.position="none")+
+  annotate("text",x = as.Date('2014-10-01'), y =550, label = "Las Vegas Shooting",arrow=arrow(), color = "red")+
+   annotate("segment",x = as.Date('2014-10-01'),xend=as.Date('2017-04-01'), y =550,yend=600,arrow=arrow(), color = "red")+
    ggtitle("Mass Shooting by presidency")
   
 
@@ -171,7 +182,9 @@ d <- ggplot(guns,aes(x=date,y=total_victims, col=president, label=total_victims,
 e <- ggplot(minus_lv,aes(x=date,y=total_victims, col=president, label=total_victims,size=total_victims, group = 1,text = summarytext )) +
   geom_smooth(method='lm',formula=y~x)+
   geom_point(stat="identity",fill="black")+
-  theme(legend.position="none")+
+   theme(axis.line=element_blank()
+         ,axis.title.x=element_blank(),
+          axis.title.y=element_blank(),legend.position="none")+
    ggtitle("Mass Shooting by presidency")
 
 
@@ -181,8 +194,8 @@ mass_shooting <- subplot(ggplotly(d,tooltip = c('text',"label",'x','president'))
  list(x = 0 , y = 1.05, text = "Including Las Vegas", showarrow = F, xref='paper', yref='paper'),
   list(x = .8 , y = 1.05, text = "Excluding Las Vegas", showarrow = F, xref='paper', yref='paper'))
 )
-
-ggsave("myplot.pdf")
+mass_shooting
+# ggsave("myplot.pdf")
 Sys.setenv("plotly_username"="justinherman42")
 Sys.setenv("plotly_api_key"="1MPl8MFGmpgXWhC5m6C7")
 api_create(mass_shooting, filename = "Visualizing mass shooting by president")
@@ -335,24 +348,16 @@ anim_save("without_vegas.gif", animation = last_animation())
 ```
 
 
-##timeline plot
+## test for change in mean between Obama and Trump by quarter
 
 ```{r}
-ggplot(guns,aes(x=date,y=0, col=total_victims, label=total_victims))+
-  labs(col="total_victims")+
-  theme_classic()+
-  geom_hline(yintercept=0, 
-                color = "black", size=0.3)
+modern_day <- guns %>% 
+  filter(president%in%c("Trump","Obama"))
 
 
-dislocations <- c(-1,1,-.5)
-ggplot(guns,aes(x=date,y=total_victims, col=president, label=total_victims,size=total_victims)) +
-  geom_point(stat="identity",fill="black")
- 
-  
-   geom_text(aes(x = as.character(total_victims), y=dislocations), position="jitter" )+
-  geom_hline( yintercept=0, size=1, scale="date" )+
-  geom_segment(  aes(x = total_victims, y=dislocations, xend=total_victims, yend=0, alpha=.7 ))
-
+od2 <- modern_day %>% 
+  group_by(quarter(modern_day$date, with_year = TRUE)) %>% 
+  summarise(injuries=sum(total_victims))
+quarter(modern_day$date, with_year = TRUE)
 ```
 
