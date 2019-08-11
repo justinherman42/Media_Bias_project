@@ -11,12 +11,11 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Dangers of data visualization
 
-Visualization allows analysts to convey important knowledge in digestible manners.  However, analysts have to make assumptions all the time in attempting to convey messages.  Sometimes, as an unintended consequnce visualizations can be extremely misleading.  With the horrific events in El Paso and Dayton in the beggining of August, publications are attempting to communicate to audiences via visualizations of these mass shootings.  Mother Jones has a  Given the Horriffic events in Elpaso and [[ nsert here]], I wanted to look at different ways to visualize the data behind mass shooting.  I understand the sensative nature of this topic, and in no way do I intend to undermine the horriffic situation that America has found itself in.  However, I believe it does serve as a pertinent example of understanding how vastly different visualizations can appear, given different assumptions. 
-
-Below 
 
 
 ```{r}
+library(MASS)
+library(pscl)  
 library(tidyverse)
 library(dplyr)
 library(readxl)
@@ -26,10 +25,14 @@ library(xtable)
 library(lubridate)
 library(gganimate)
 library(cowplot)
+library()
 library(plotly)
 guns <- read.csv("https://raw.githubusercontent.com/justinherman42/Media_Bias_project/master/Guns_Visualizations/csv_files/Mother%20Jones.csv")
 
 ```
+
+
+## General data Manipulation
 
 ```{r,echo=F}
 ### General data Manipulations
@@ -91,6 +94,7 @@ without_lv <- ggplot(minus_lv,  aes(x=president, y=total_victims)) +
    labs(x = "", y = "total # victims")
 
 ##Normalize per term 
+
 normalized_withlv <- ggplot(guns, aes(x=president, y=total_victims_per_term)) + 
   geom_bar(stat='identity',fill="steelblue")+
       theme(axis.text.x=element_text(angle=90,hjust=1),
@@ -104,17 +108,6 @@ normalized_without_lv <- ggplot(minus_lv,  aes(x=president, y=total_victims_per_
             legend.position="none")+
     ggtitle("Per Term Without Vegas")+
    labs(x = "", y = "total # victims")
-
-
-# ggplot(guns, aes(x=president, y=total_victims_per_term)) + 
-#   geom_segment(aes(x = 0, y = president, xend = total_victims_per_term, yend = president), color = "grey50")+
-#   geom_point()
-#   
-#       theme(axis.text.x=element_text(angle=90,hjust=1),
-#             legend.position="none")+
-#     ggtitle("Per Term With Vegas")
-
-
 
 
 ## plot both graphs
@@ -154,9 +147,6 @@ ggplotly(bubble_chart)
 
 
 ```{r}
-
-
-
 ## plot by race
 a <- ggplot(minus_lv, aes(x=race, y=total_victims,fill="steelblue")) + 
   geom_bar(stat='identity',color="steelblue")+
@@ -164,9 +154,7 @@ a <- ggplot(minus_lv, aes(x=race, y=total_victims,fill="steelblue")) +
   coord_flip()
 ggplotly(a)
 
-
-
-## time plot showing victems
+## time plot showing victims
 d <- ggplot(guns,aes(x=date,y=total_victims, col=president, label=total_victims,size=total_victims, group = 1,text = summarytext)) +
   geom_smooth(method='lm',formula=y~x)+
   geom_point(stat="identity",fill="black")+
@@ -178,7 +166,7 @@ d <- ggplot(guns,aes(x=date,y=total_victims, col=president, label=total_victims,
    ggtitle("Mass Shooting by presidency")
   
 
-## time plot showing victems wihtout Vegas
+## time plot showing victims wihtout Vegas
 e <- ggplot(minus_lv,aes(x=date,y=total_victims, col=president, label=total_victims,size=total_victims, group = 1,text = summarytext )) +
   geom_smooth(method='lm',formula=y~x)+
   geom_point(stat="identity",fill="black")+
@@ -196,13 +184,206 @@ mass_shooting <- subplot(ggplotly(d,tooltip = c('text',"label",'x','president'))
 )
 mass_shooting
 # ggsave("myplot.pdf")
-Sys.setenv("plotly_username"="justinherman42")
-Sys.setenv("plotly_api_key"="1MPl8MFGmpgXWhC5m6C7")
-api_create(mass_shooting, filename = "Visualizing mass shooting by president")
+
 
 ```
 
 
+
+## test for change in mean between Obama and Trump by quarter
+
+```{r}
+modern_day <- guns %>% 
+  filter(president%in%c("Trump","Obama"))
+
+## build out dataset
+od2 <- modern_day %>% 
+  group_by(quarter(modern_day$date, with_year = TRUE)) %>% 
+  summarise(injuries=sum(total_victims))
+colnames(od2) <- c("quarter","injuries")
+
+## lets look at distribution
+b <- seq(as.Date("2009/1/1"), as.Date("2019/8/1"), by = "quarter")
+full_dates <- as.data.frame(b) %>% 
+  group_by(quarter(b,with_year = TRUE))
+colnames(full_dates) <- c("the_date","quarter")
+quarterly <- left_join(full_dates,od2,by="quarter",fill=0 )
+quarterly[is.na(quarterly)] <- 0
+quarterly$president <- ifelse(quarterly$the_date< as.Date("2017-01-01"),"Obama","Trump")
+max(quarterly$injuries)/length(quarterly$injuries)
+
+trump_vs_obama <- ggplot(quarterly, aes(x=the_date,y=injuries,fill=president)) +
+  geom_bar(stat="identity")+
+  ggtitle("    Quarterly Injuries Obama Vs Trump")
+trump_vs_obama
+save_plot("trump_vs_obama.png",trump_vs_obama)
+
+## rpeat without outlier
+od2 <- modern_day %>% 
+  dplyr::filter(total_victims<300) 
+od2 <- od2 %>% 
+  group_by(quarter(od2$date, with_year = TRUE)) %>% 
+  summarise(injuries=sum(total_victims))
+colnames(od2) <- c("quarter","injuries")
+modern_day$date
+## lets look at distribution
+b <- seq(as.Date("2009/1/1"), as.Date("2019/8/1"), by = "quarter")
+full_dates <- as.data.frame(b) %>% 
+  group_by(quarter(b,with_year = TRUE))
+colnames(full_dates) <- c("the_date","quarter")
+quarterly <- left_join(full_dates,od2,by="quarter",fill=0 )
+quarterly[is.na(quarterly)] <- 0
+quarterly$president <- ifelse(quarterly$the_date< as.Date("2017-01-01"),"Obama","Trump")
+max(quarterly$injuries)/length(quarterly$injuries)
+trump_vs_obama <- ggplot(quarterly, aes(x=the_date,y=injuries,fill=president)) +
+  geom_bar(stat="identity")+
+  ggtitle("    Quarterly Injuries Obama Vs Trump")
+
+trump_vs_obama
+save_plot("trump_vs_obama2.png",trump_vs_obama)
+
+```
+
+## Run statistical tests
+
+```{r}
+
+distribution_1<-  c (11, 19,  0, 70, 42, 38, 16, 54, 20, 16, 99)
+distribution_2<-  c(11, 18, 0, 48, 0, 0, 11, 0, 19, 0,  12, 9, 5, 17, 100, 29, 7, 14, 27, 0, 6, 34, 0, 6, 0,14, 7, 68, 25, 102, 27, 0)
+
+wilcox.test(distribution_1,distribution_2)
+
+ggplot(quarterly,aes(x=quarter,y=injuries, col=president)) +
+  geom_point(stat="identity")
+
+df$idu <- as.numeric(row.names(df))
+
+quarterly$president <- as.factor(quarterly$president)
+
+
+glmFitP <- glm(injuries ~ president, family=poisson(link="log"), data=quarterly)
+summary(glmFitP) 
+
+glmFitqP <- glm(injuries ~ president, family=quasipoisson(link="log"), data=quarterly)
+summary(glmFitqP) 
+
+glmFitNB <- glm.nb(injuries ~ president, data=quarterly)
+ summary(glmFitNB) 
+                       # for odTest()
+ odTest(glmFitNB)
+ 
+## Run statistical tests
+glmFitP <- glm(round(total_victims_per_term,0) ~ president, family=poisson(link="log"), data=modern_day)
+summary(glmFitP) 
+glmFitqP <- glm(round(total_victims_per_term,0) ~ president, family=quasipoisson(link="log"), data=modern_day)
+summary(glmFitqP) 
+glmFitNB <- glm.nb(round(total_victims_per_term,0) ~ president, data=modern_day)
+summary(glmFitNB) 
+
+
+##
+glmFitP <- glm(round(total_victims_per_term,0) ~ president, family=poisson(link="log"), data=modern_day)
+summary(glmFitP) 
+glmFitqP <- glm(round(total_victims_per_term,0) ~ president, family=quasipoisson(link="log"), data=modern_day)
+summary(glmFitqP) 
+glmFitNB <- glm.nb(round(total_victims_per_term,0) ~ president, data=modern_day)
+summary(glmFitNB) 
+
+
+
+modern_day2 <- modern_day %>% 
+  filter(total_victims_per_term<600)
+
+glmFitP <- glm(round(total_victims_per_term,0) ~ president, family=poisson(link="log"), data=modern_day2)
+summary(glmFitP) 
+glmFitqP <- glm(round(total_victims_per_term,0) ~ president, family=quasipoisson(link="log"), data=modern_day2)
+summary(glmFitqP) 
+glmFitNB <- glm.nb(round(total_victims_per_term,0) ~ president, data=modern_day2)
+summary(glmFitNB) 
+```
+
+
+
+
+## all presidents
+
+```{r}
+##
+days <- as.data.frame(seq(as.Date("1981/1/1"), as.Date("2019/8/11"), by = "day"))
+colnames(days) <- c("date")
+guns2 <- guns %>% 
+  dplyr::select(total_victims,date,president)
+getting_events<- left_join(days,guns2,by="date" )
+getting_events$president <- as.character(getting_events$president)
+getting_events$total_victims[is.na(getting_events$total_victims)] <- 0
+getting_events$president <- ifelse(getting_events$date< as.Date("2017-01-20"),"Obama","Trump")
+getting_events$shooting <- ifelse(getting_events$total_victims>0,1,0)
+getting_events$president<- cut(getting_events$date, 
+                   breaks=c(as.Date('1981-01-01'),as.Date('1989-01-01'),as.Date('1993-01-01'),as.Date('2001-01-01'),as.Date('2009-01-01'),as.Date('2017-01-01'),as.Date('2020-01-01')), 
+                   labels=c("Reagan","BushSr","Clinton","Bushjr","Obama","Trump"))
+
+
+## Days between shooting
+average_days_between_shootings <- getting_events %>% 
+  group_by(president) %>%
+  summarise(average_days_between_shootings= round(1/(sum(shooting)/length(shooting))))
+
+## average injury count
+average_injury_by_mass_shooting <- getting_events %>% 
+  filter (shooting==1) %>% 
+  group_by(president) %>%
+  summarise(
+    average_injuries= round(sum(total_victims)/length(total_victims),2))
+
+median_shooting <- getting_events %>% 
+  filter (shooting==1) %>% 
+  group_by(president) %>%
+summarise_(median_injury_count=~median(total_victims))
+
+
+all_presidents <- left_join(median_shooting,average_injury_by_mass_shooting,on=president) 
+all_presidents <- left_join(all_presidents,average_days_between_shootings, on=president)
+
+# png("test2.png")
+# p<-tableGrob(all_presidents)
+# grid.arrange(p)
+# dev.off()
+
+getting_events %>% 
+  group_by(president) %>%
+summarise(Total_number_shootings_per_year=sum(shooting)/length(total_victims)*365)
+
+getting_events %>% 
+  group_by(president) %>%
+summarise(Total_number_shootings_per_year=sum(total_victims))
+```
+
+```{r}
+trump <- sample(distribution_1, 1000, replace=TRUE)
+obama<- sample(distribution_2, 1000, replace=TRUE)
+df <- rbind(data.frame(dist=distribution_1,pres="Trump"),data.frame(dist=distribution_2,pres="Obama"))
+ggplot(df, aes(x, group=pres, col=pres)) + geom_density(position='dodge')
+plot(density(obama$sample.distribution_2..1000..replace...TRUE.))
+plot(density(trump$sample.distribution_1..1000..replace...TRUE.))
+vec1 <- data.frame(x=distribution_1)
+vec2 <- data.frame(x=distribution_2)
+Trump_mean <- mean(vec1$x)
+Obama_mean<- mean(vec2$x)
+distribution_plot <- ggplot() + geom_density(aes(x=x), colour="red", data=vec1) + 
+  geom_density(aes(x=x), colour="blue", data=vec2)+
+   geom_vline(aes(color="Trump_mean ", xintercept=mean.vec1 ), linetype="dashed",  size=1.0, show.legend = NA)+
+  geom_vline(aes(color="Obama_mean", xintercept=Obama_mean), linetype="dashed", size=1.0, show.legend = NA)+
+  ggtitle("         Simulated distributions Without Las Vegas")
+distribution_plot
+save_plot("distribution_plot.png",distribution_plot)
+
+
+```
+
+
+
+
+## Build out animations
 
 ```{r}
 
@@ -255,9 +436,6 @@ p2<- ggplot(aa2, aes(x=race, y=total_victims,fill="steelblue")) +
 
 animate(p2+coord_flip(), renderer = gifski_renderer(loop = F))
 
-
-
-
 aa3 <- aa %>%
     filter(! president%in% c("Trump","Obama")) %>% 
     group_by(year,race) %>% 
@@ -266,6 +444,7 @@ aa3$total_victims <- ave(aa3$yearly_death_per_race, aa3$race, FUN=cumsum)
 ```
 
 
+## More animations 
 
 ```{r}
 ## Expand DF to Build out a DF with every combination of President/race/year
@@ -345,230 +524,5 @@ p<- ggplot(aa2, aes(x=race, y=total_victims,fill=race)) +
 
 animate(p, renderer = gifski_renderer(loop = F))
 anim_save("without_vegas.gif", animation = last_animation())
-```
-
-
-## test for change in mean between Obama and Trump by quarter
-
-```{r}
-modern_day <- guns %>% 
-  filter(president%in%c("Trump","Obama"))
-
-
-od2 <- modern_day %>% 
-  group_by(quarter(modern_day$date, with_year = TRUE)) %>% 
-  summarise(injuries=sum(total_victims))
-colnames(od2) <- c("quarter","injuries")
-modern_day$date
-## lets look at distribution
-b <- seq(as.Date("2009/1/1"), as.Date("2019/8/1"), by = "quarter")
-full_dates <- as.data.frame(b) %>% 
-  group_by(quarter(b,with_year = TRUE))
-colnames(full_dates) <- c("the_date","quarter")
-quarterly <- left_join(full_dates,od2,by="quarter",fill=0 )
-quarterly[is.na(quarterly)] <- 0
-
-quarterly$president <- ifelse(quarterly$the_date< as.Date("2017-01-01"),"Obama","Trump")
-max(quarterly$injuries)/length(quarterly$injuries)
-
-
-##
-trump_vs_obama <- ggplot(quarterly, aes(x=injuries)) + 
-  geom_histogram(binwidth=2.3)
-trump_vs_obama <- ggplot(quarterly, aes(x=the_date,y=injuries,fill=president)) +
-  geom_bar(stat="identity")
-trump_vs_obama
-
-mean_data <- mean(quarterly$injuries)
-sd_data <- sd(quarterly$injuries)
-var_data <- var(quarterly$injuries)
-quarterly$injuries[quarterly$president=="Obama"]
-
- wilcox.test(quarterly$injuries[quarterly$president=="Trump"],quarterly$injuries[quarterly$president=="Obama"])
-```
-```{r}
-
-distribution_1<-  c (11, 19,  0, 70, 42, 38, 16, 54, 20, 16, 99)
-distribution_2<-  c(11, 18, 0, 48, 0, 0, 11, 0, 19, 0,  12, 9, 5, 17, 100, 29, 7, 14, 27, 0, 6, 34, 0, 6, 0,14, 7, 68, 25, 102, 27, 0)
-
-wilcox.test(distribution_1,distribution_2)
-
-ggplot(quarterly,aes(x=quarter,y=injuries, col=president)) +
-  geom_point(stat="identity")
-
-df$idu <- as.numeric(row.names(df))
-
-quarterly$president <- as.factor(quarterly$president)
-
-
-glmFitP <- glm(injuries ~ president, family=poisson(link="log"), data=quarterly)
-summary(glmFitP) 
-
-glmFitqP <- glm(injuries ~ president, family=quasipoisson(link="log"), data=quarterly)
-summary(glmFitqP) 
-library(MASS)
-glmFitNB <- glm.nb(injuries ~ president, data=quarterly)
- summary(glmFitNB) 
- 
- library(pscl)                         # for odTest()
- odTest(glmFitNB)
- 
- 
- 
- modern_day
-
-```
-
-
-
-```{r}
-
-## Run statistical tests
-glmFitP <- glm(round(total_victims_per_term,0) ~ president, family=poisson(link="log"), data=modern_day)
-summary(glmFitP) 
-glmFitqP <- glm(round(total_victims_per_term,0) ~ president, family=quasipoisson(link="log"), data=modern_day)
-summary(glmFitqP) 
-library(MASS)
-glmFitNB <- glm.nb(round(total_victims_per_term,0) ~ president, data=modern_day)
-summary(glmFitNB) 
-
-
-##
-glmFitP <- glm(round(total_victims_per_term,0) ~ president, family=poisson(link="log"), data=modern_day)
-summary(glmFitP) 
-glmFitqP <- glm(round(total_victims_per_term,0) ~ president, family=quasipoisson(link="log"), data=modern_day)
-summary(glmFitqP) 
-library(MASS)
-glmFitNB <- glm.nb(round(total_victims_per_term,0) ~ president, data=modern_day)
-summary(glmFitNB) 
-
-
-
-modern_day2 <- modern_day %>% 
-  filter(total_victims_per_term<600)
-
-glmFitP <- glm(round(total_victims_per_term,0) ~ president, family=poisson(link="log"), data=modern_day2)
-summary(glmFitP) 
-glmFitqP <- glm(round(total_victims_per_term,0) ~ president, family=quasipoisson(link="log"), data=modern_day2)
-summary(glmFitqP) 
-library(MASS)
-glmFitNB <- glm.nb(round(total_victims_per_term,0) ~ president, data=modern_day2)
-summary(glmFitNB) 
-```
-
-
-
-```{r}
-# library(degreenet)
-# aa <- bsnb(distribution_2, cutoff=1, m=200, np=2, alpha=0.95, hellinger=FALSE)
-# bootstrapnb(x,cutoff=1,cutabove=1000,
-#                           m=200,alpha=0.95,guess=c(5, 0.2),
-#                           file="none")
-# 
-# table(aa)
-# s4est <- anbmle(table(aa))
-# bsnb(s4, m=20)
-# s4 <- simnb(n=10, v=distribution_2)
-
-
-
-##
-days <- as.data.frame(seq(as.Date("2009/1/1"), as.Date("2019/8/1"), by = "day"))
-colnames(days) <- c("date")
-modern_day2 <- modern_day %>% 
-  dplyr::select(total_victims,date,president)
-getting_events<- left_join(days,modern_day2,by="date" )
-getting_events$president <- as.character(getting_events$president)
-getting_events$total_victims[is.na(getting_events$total_victims)] <- 0
-getting_events$president <- ifelse(getting_events$date< as.Date("2017-01-20"),"Obama","Trump")
-getting_events$shooting <- ifelse(getting_events$total_victims>0,1,0)
-
-
-
-## Days between shooting
-getting_events %>% 
-  group_by(president) %>%
-  summarise(average_days_between_shootings= round(1/(sum(shooting)/length(shooting))))
-
-## average injury count
-getting_events %>% 
-  filter (shooting==1) %>% 
-  group_by(president) %>%
-  summarise(
-    average_injuries= sum(total_victims)/length(total_victims))
-
-getting_events %>% 
-  filter (shooting==1) %>% 
-  group_by(president) %>%
-summarise_(median_injury_count=~median(total_victims))
-```
-
-## all rpesidents
-```{r}
-##
-days <- as.data.frame(seq(as.Date("1981/1/1"), as.Date("2019/8/11"), by = "day"))
-colnames(days) <- c("date")
-guns2 <- guns %>% 
-  dplyr::select(total_victims,date,president)
-getting_events<- left_join(days,guns2,by="date" )
-getting_events$president <- as.character(getting_events$president)
-getting_events$total_victims[is.na(getting_events$total_victims)] <- 0
-getting_events$president <- ifelse(getting_events$date< as.Date("2017-01-20"),"Obama","Trump")
-getting_events$shooting <- ifelse(getting_events$total_victims>0,1,0)
-
-
-as.Date('1980-01-01')
-getting_events$president<- cut(getting_events$date, 
-                   breaks=c(as.Date('1981-01-01'),as.Date('1989-01-01'),as.Date('1993-01-01'),as.Date('2001-01-01'),as.Date('2009-01-01'),as.Date('2017-01-01'),as.Date('2020-01-01')), 
-                   labels=c("Reagan","BushSr","Clinton","Bushjr","Obama","Trump"))
-
-
-## Days between shooting
-getting_events %>% 
-  group_by(president) %>%
-  summarise(average_days_between_shootings= round(1/(sum(shooting)/length(shooting))))
-
-## average injury count
-getting_events %>% 
-  filter (shooting==1) %>% 
-  group_by(president) %>%
-  summarise(
-    average_injuries= sum(total_victims)/length(total_victims))
-
-getting_events %>% 
-  filter (shooting==1) %>% 
-  group_by(president) %>%
-summarise_(median_injury_count=~median(total_victims))
-
-
-getting_events %>% 
-  group_by(president) %>%
-summarise(Total_number_shootings_per_year=sum(shooting)/length(total_victims)*365)
-
-
-
-```
-
-```{r}
-trump <- sample(distribution_1, 1000, replace=TRUE)
-obama<- sample(distribution_2, 1000, replace=TRUE)
-
-
-df <- rbind(data.frame(trump,pres="Trump"),
-             (data.frame(obama,pres="Obama")))
-
-
-
-ggplot(df, aes(x, group=vec, col=vec)) + geom_density(position='dodge')
-plot(density(obama$sample.distribution_2..1000..replace...TRUE.))
-plot(density(trump$sample.distribution_1..1000..replace...TRUE.))
-
-vec1 <- data.frame(x=trump)
-vec2 <- data.frame(x=obama)
-
-library(ggplot2)
-
-ggplot() + geom_density(aes(x=x), colour="red", data=vec1) + 
-  geom_density(aes(x=x), colour="blue", data=vec2)
 ```
 
