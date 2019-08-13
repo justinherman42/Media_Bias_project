@@ -57,7 +57,7 @@ cluster_jobs <- function(df,reg_express,replacement_val){
 
 ## create list to import candidate level filenames
 list_csv <-c( paste(as.character(2:25),".csv", sep=""))
-old_df <-  as.data.frame(read.csv('1.csv'), stringsAsFactors = FALSE)
+old_df <-  as.data.frame(read.csv('csv_files/1.csv'), stringsAsFactors = FALSE)
 
 ## filter for only individual level donors
 old_df <- old_df %>% 
@@ -65,13 +65,13 @@ old_df <- old_df %>%
 
 ## Loop to join all FEC individual csv FEC files together 
 for (x in list_csv){
-  new_df <- as.data.frame(read.csv(x), stringsAsFactors = FALSE)
+  new_df <- as.data.frame(read.csv(paste('csv_files/',x,sep='')), stringsAsFactors = FALSE)
   new_df <- new_df %>% 
     filter(X_ind=="IND")
   old_df <- rbind(old_df,new_df)
 }
 
-## select columns we want, create date column, filter out salries and other "donations"
+## select columns we want, create date column, filter out salaries and other "donations"
 final_df <- old_df %>% 
   filter(donation_to_date_total>0) %>% 
   mutate(Date=as.Date(paste(substring(Date,1,4),substring(Date,5,6),substring(Date,7,8),sep="-")),
@@ -265,83 +265,103 @@ kable(new_tab_df,caption = 'Top 997 uses of C-level executive title with origina
 ## Summary of Data Manipulation
  
 
-##Full table
+##Full table- Not correct gifi
 ```{r,echo=F}
-sort(table(df_5$clustered_jobs),decreasing=TRUE)[0:50]
-all_ceo$date
-
-##build cartesian df
+all_corporate_influence <- df_5 %>% 
+    filter(df_5$clustered_jobs%in%c("CEO"))
 allnames <- data.frame(rep(unique(all_ceo$comm_id),27))
 build_dates <- rep(seq(as.Date("2018-12-31	"), as.Date("2019-07-01	"), by = "week"),13)
 build_dates <- sort(as.Date(build_dates))
 cart_df <- as.data.frame(cbind(allnames,build_dates))
-colnames(cart_df) <- c("comm_id","week")
+colnames(cart_df) <- c("comm_id","Date")
 
 ## build our df
 #all_ceo$Date <-as.Date(all_ceo$contribution_receipt_date) 
-all_ceo$comm_id <- as.factor(all_ceo$comm_id)
-all_ceo <- all_ceo %>% 
+all_corporate_influence$comm_id <- as.factor(all_corporate_influence$comm_id)
+all_corporate_influence <- all_corporate_influence %>% 
   filter(Date> as.Date("2018-12-31"))
-all_ceo
+
 
 ##cartesian join 
-aa <- plyr::join(cart_df,all_ceo,type="left", by=c("comm_id"))
-weekly_donations <- aa %>% group_by(week = cut(Date,"week"),comm_id,) %>% summarise(value = sum(donation_amt)) %>% 
-  complete(comm_id)
+all_corporate_influence$Date <-as.Date(cut(all_corporate_influence$Date,"week")) 
+aa <- plyr::join(all_corporate_influence,cart_df,type="left", by=c("comm_id","Date"))
+weekly_donations <- aa %>% group_by(comm_id,Date) %>% 
+                          summarise(value = sum(donation_amt)/1000000) %>% 
+                          complete(comm_id,Date)
 weekly_donations[is.na(weekly_donations)] <- 0
-weekly_donations$Money_Raised_From_CEO <- ave(weekly_donations$value, weekly_donations$comm_id, FUN=cumsum)/1000000
-weekly_donations$quarter <- ifelse(as.Date(weekly_donations$week)< as.Date('2019-04-01'),1,2)
-weekly_donations$week <- as.Date(weekly_donations$week)
+weekly_donations <- weekly_donations [!duplicated(weekly_donations),]
+weekly_donations <- weekly_donations %>% 
+  arrange(Date)
+weekly_donations$Money_Raised_From_CEO <- ave(weekly_donations$value, weekly_donations$comm_id, FUN=cumsum)
+weekly_donations$quarter <- ifelse(as.Date(weekly_donations$Date)< as.Date('2019-04-01'),1,2)
 
 # animated  barplot:
-p <- ggplot(weekly_donations, aes(x=comm_id, y=Money_Raised_From_CEO,color=quarter)) + 
+p3 <- ggplot(weekly_donations, aes(x=comm_id, y=Money_Raised_From_CEO)) + 
   geom_bar(stat='identity')+
       theme(axis.text.x=element_text(angle=90,hjust=1))+
-    labs(title="Cumulative CEO Campaign Donations {closest_state}") +
-    transition_states(week)+
-  xlab("Money Raised from CEO's")
+    labs(title="Cumulative Executive Campaign Donations {closest_state}") +
+    transition_states(Date)
 
-animate(p+coord_flip(), renderer = gifski_renderer(loop = F))
+animate(p3+coord_flip(), renderer = gifski_renderer(loop = F))
+
 
 ```
 
+
+## STill nto right
+
 ```{r}
-##build cartesian df
+all_corporate_influence <- df_5 %>% 
+    filter(df_5$clustered_jobs%in%c("C LEVEL_eXECS"))
 allnames <- data.frame(rep(unique(all_ceo$comm_id),27))
 build_dates <- rep(seq(as.Date("2018-12-31	"), as.Date("2019-07-01	"), by = "week"),13)
 build_dates <- sort(as.Date(build_dates))
 cart_df <- as.data.frame(cbind(allnames,build_dates))
-colnames(cart_df) <- c("comm_id","week")
+colnames(cart_df) <- c("comm_id","Date")
 
 ## build our df
 #all_ceo$Date <-as.Date(all_ceo$contribution_receipt_date) 
-all_C_LEVEL$comm_id <- as.factor(all_C_LEVEL$comm_id)
-all_C_LEVEL <- all_C_LEVEL %>% 
+all_corporate_influence$comm_id <- as.factor(all_corporate_influence$comm_id)
+all_corporate_influence <- all_corporate_influence %>% 
   filter(Date> as.Date("2018-12-31"))
 
 
 ##cartesian join 
-aa <- plyr::join(cart_df,all_C_LEVEL,type="left", by=c("comm_id"))
-weekly_donations <- aa %>% group_by(week = cut(Date,"week"),comm_id,) %>% summarise(value = sum(donation_amt)) %>% 
-  complete(comm_id)
+all_corporate_influence$Date <-as.Date(cut(all_corporate_influence$Date,"week")) 
+aa <- plyr::join(all_corporate_influence,cart_df,type="left", by=c("comm_id","Date"))
+weekly_donations <- aa %>% group_by(comm_id,Date) %>% 
+                          summarise(value = sum(donation_amt)/1000000) %>% 
+                          complete(comm_id,Date)
 weekly_donations[is.na(weekly_donations)] <- 0
-weekly_donations$Money_Raised_From_CEO <- ave(weekly_donations$value, weekly_donations$comm_id, FUN=cumsum)/1000000
-weekly_donations$quarter <- ifelse(as.Date(weekly_donations$week)< as.Date('2019-04-01'),1,2)
-weekly_donations$week <- as.Date(weekly_donations$week)
+weekly_donations <- weekly_donations [!duplicated(weekly_donations),]
+weekly_donations <- weekly_donations %>% 
+  arrange(Date)
+weekly_donations$Money_Raised_From_CEO <- ave(weekly_donations$value, weekly_donations$comm_id, FUN=cumsum)
+weekly_donations$quarter <- ifelse(as.Date(weekly_donations$Date)< as.Date('2019-04-01'),1,2)
 
 # animated  barplot:
-p1 <- ggplot(weekly_donations, aes(x=comm_id, y=Money_Raised_From_CEO,color=quarter)) + 
+p3 <- ggplot(weekly_donations, aes(x=comm_id, y=Money_Raised_From_CEO)) + 
   geom_bar(stat='identity')+
       theme(axis.text.x=element_text(angle=90,hjust=1))+
-    labs(title="Cumulative CEO Campaign Donations {closest_state}") +
-    transition_states(week)+
-  xlab("Money Raised from C Level Execs")
+    labs(title="Cumulative C level executives {closest_state}") +
+    transition_states(Date)
 
-animate(p+coord_flip(), renderer = gifski_renderer(loop = F))
+animate(p3+coord_flip(), renderer = gifski_renderer(loop = F))
 ```
 
 
+
+## STill nto right 
+
 ```{r}
+
+
+
+
+
+
+
+
 ##build cartesian df
 allnames <- data.frame(rep(unique(all_ceo$comm_id),27))
 build_dates <- rep(seq(as.Date("2018-12-31	"), as.Date("2019-07-01	"), by = "week"),13)
@@ -376,7 +396,7 @@ p2 <- ggplot(weekly_donations, aes(x=comm_id, y=Money_Raised_From_CEO,color=quar
 animate(p+coord_flip(), renderer = gifski_renderer(loop = F))
 ```
 
-
+## correct
 
 ```{r,echo=F}
 all_corporate_influence <- df_5 %>% 
