@@ -354,46 +354,41 @@ animate(p3+coord_flip(), renderer = gifski_renderer(loop = F))
 ## STill nto right 
 
 ```{r}
-
-
-
-
-
-
-
-
-##build cartesian df
-allnames <- data.frame(rep(unique(all_ceo$comm_id),27))
-build_dates <- rep(seq(as.Date("2018-12-31	"), as.Date("2019-07-01	"), by = "week"),13)
-build_dates <- sort(as.Date(build_dates))
-cart_df <- as.data.frame(cbind(allnames,build_dates))
-colnames(cart_df) <- c("comm_id","week")
-
-## build our df
-#all_ceo$Date <-as.Date(all_ceo$contribution_receipt_date) 
-all_execs$comm_id <- as.factor(all_execs$comm_id)
-all_execs <- all_execs %>% 
-  filter(Date> as.Date("2018-12-31"))
-
-
-##cartesian join 
-aa <- plyr::join(cart_df,all_execs,type="left", by=c("comm_id"))
-weekly_donations <- aa %>% group_by(week = cut(Date,"week"),comm_id,) %>% summarise(value = sum(donation_amt)) %>% 
-  complete(comm_id)
-weekly_donations[is.na(weekly_donations)] <- 0
-weekly_donations$Money_Raised_From_CEO <- ave(weekly_donations$value, weekly_donations$comm_id, FUN=cumsum)/1000000
-weekly_donations$quarter <- ifelse(as.Date(weekly_donations$week)< as.Date('2019-04-01'),1,2)
-weekly_donations$week <- as.Date(weekly_donations$week)
-
-# animated  barplot:
-p2 <- ggplot(weekly_donations, aes(x=comm_id, y=Money_Raised_From_CEO,color=quarter)) + 
-  geom_bar(stat='identity')+
-      theme(axis.text.x=element_text(angle=90,hjust=1))+
-    labs(title="Cumulative Executive Campaign Donations {closest_state}") +
-    transition_states(week)+
-  xlab("Money Raised from C Level Execs")
-
-animate(p+coord_flip(), renderer = gifski_renderer(loop = F))
+# 
+# ##build cartesian df
+# allnames <- data.frame(rep(unique(all_ceo$comm_id),27))
+# build_dates <- rep(seq(as.Date("2018-12-31	"), as.Date("2019-07-01	"), by = "week"),13)
+# build_dates <- sort(as.Date(build_dates))
+# cart_df <- as.data.frame(cbind(allnames,build_dates))
+# colnames(cart_df) <- c("comm_id","week")
+# 
+# ## build our df
+# #all_ceo$Date <-as.Date(all_ceo$contribution_receipt_date) 
+# all_execs$comm_id <- as.factor(all_execs$comm_id)
+# all_execs <- all_execs %>% 
+#   filter(Date> as.Date("2018-12-31"))
+# 
+# 
+# ##cartesian join 
+# 
+# aa <- plyr::join(cart_df,all_execs,type="left", by=c("comm_id"))
+# weekly_donations <- aa %>% group_by(week = cut(Date,"week"),comm_id,) %>% summarise(value = sum(donation_amt)) %>% 
+#   complete(comm_id)
+# 
+# weekly_donations[is.na(weekly_donations)] <- 0
+# weekly_donations$Money_Raised_From_CEO <- ave(weekly_donations$value, weekly_donations$comm_id, FUN=cumsum)/1000000
+# weekly_donations$quarter <- ifelse(as.Date(weekly_donations$week)< as.Date('2019-04-01'),1,2)
+# weekly_donations$week <- as.Date(weekly_donations$week)
+# 
+# # animated  barplot:
+# p2 <- ggplot(weekly_donations, aes(x=comm_id, y=Money_Raised_From_CEO,color=quarter)) + 
+#   geom_bar(stat='identity')+
+#       theme(axis.text.x=element_text(angle=90,hjust=1))+
+#     labs(title="Cumulative Executive Campaign Donations {closest_state}") +
+#     transition_states(week)+
+#   xlab("Money Raised from C Level Execs")
+# 
+# animate(p+coord_flip(), renderer = gifski_renderer(loop = F))
 ```
 
 ## correct
@@ -495,8 +490,50 @@ sum(harriiss$donation_amt)
 
 
 ```{r}
-read.csv("guns.csv")
+animated_donation_by_job <- function(job_positions,graph_title)
+{  
+  all_corporate_influence <- df_5 %>% 
+    filter(df_5$clustered_jobs%in%c(job_positions))
+allnames <- data.frame(rep(unique(all_ceo$comm_id),27))
+build_dates <- rep(seq(as.Date("2018-12-31	"), as.Date("2019-07-01	"), by = "week"),13)
+build_dates <- sort(as.Date(build_dates))
+cart_df <- as.data.frame(cbind(allnames,build_dates))
+colnames(cart_df) <- c("comm_id","Date")
 
+## build our df
+#all_ceo$Date <-as.Date(all_ceo$contribution_receipt_date) 
+all_corporate_influence$comm_id <- as.factor(all_corporate_influence$comm_id)
+all_corporate_influence <- all_corporate_influence %>% 
+  filter(Date> as.Date("2018-12-31"))
+
+
+##cartesian join 
+all_corporate_influence$Date <-as.Date(cut(all_corporate_influence$Date,"week")) 
+aa <- plyr::join(all_corporate_influence,cart_df,type="left", by=c("comm_id","Date"))
+weekly_donations <- aa %>% group_by(comm_id,Date) %>% 
+                          summarise(value = sum(donation_amt)/1000000) %>% 
+                          complete(comm_id,Date)
+weekly_donations[is.na(weekly_donations)] <- 0
+weekly_donations <- weekly_donations [!duplicated(weekly_donations),]
+weekly_donations <- weekly_donations %>% 
+  arrange(Date)
+weekly_donations$Money_Raised_From_CEO <- ave(weekly_donations$value, weekly_donations$comm_id, FUN=cumsum)
+weekly_donations$quarter <- ifelse(as.Date(weekly_donations$Date)< as.Date('2019-04-01'),1,2)
+
+# animated  barplot:
+p3 <- ggplot(weekly_donations, aes(x=comm_id, y=Money_Raised_From_CEO)) + 
+  geom_bar(stat='identity')+
+      theme(axis.text.x=element_text(angle=90,hjust=1))+
+    labs(title=paste(graph_title," {closest_state}")) +
+    transition_states(Date)
+
+animate(p3+coord_flip(), renderer = gifski_renderer(loop = F))
+}
+
+animated_donation_by_job("CEO","my graph for CEO")
+```
+
+```{r}
 
 ```
 
