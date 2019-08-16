@@ -51,6 +51,14 @@ cluster_jobs <- function(df,reg_express,replacement_val){
             mutate(job_changed = ifelse(clustered_jobs == job_position,'0','1'))
     return(df)
 }
+
+
+industry_level_cluster_jobs <- function(df,reg_express,replacement_val){    
+   
+    ## Populate new col with imputed value
+    df$industry_cluster<- df$industry_cluster[str_detect(df$industry_cluster,reg_express)]<- replacement_val
+
+}
 ```
 
 ```{r,echo=FALSE,warning=F,message=F}
@@ -84,6 +92,9 @@ sum(final_df$donation_amt)
 
 final_df %>% 
   filter(comm_id=="Bernie")
+
+
+
 ```
 
 # Looking into FEC Individual level fundraising for Democratic Party
@@ -139,85 +150,151 @@ clustered_df <- cluster_jobs(final_df,"CEO","CEO")
 clustered_df$clustered_jobs <- as.character(clustered_df$clustered_jobs)
 clustered_df$clustered_jobs[is.na(clustered_df$clustered_jobs)] <- "Not selected"
 
+## GRAB SOME EXLCUSIONS
+clustered_df <- cluster_jobs(clustered_df,"EXECUTIVE RECRUITER|EXECUTIVE SEARCH|RECRUITER","rECRUITER")
+
+
 ## Executive level positions
 ## WORDS INTENTIONALLY ARE REPLACED WITH SOME LOWERCASE LETTERS
 
-clustered_df <- cluster_jobs(clustered_df,"CHIEF EXECUTIVE OFFICER","CEO")
-clustered_df <- cluster_jobs(clustered_df,'CHIEF \\w* OFFICER',"C LEVEL_eXECS")
-clustered_df <- cluster_jobs(clustered_df,'^C[A-D|F-Z]O\\b',"C LEVEL_eXECS")
-clustered_df <- cluster_jobs(clustered_df,'/C[A-D|F-Z]O\\b',"C LEVEL_eXECS")
-clustered_df <- cluster_jobs(clustered_df,"MANAGING PARTNER","CEO")
-clustered_df <- cluster_jobs(clustered_df,'EVP',"C LEVEL_eXECS")
-clustered_df <- cluster_jobs(clustered_df,'EXECUTIVE VP',"C LEVEL_eXECS")
-clustered_df <- cluster_jobs(clustered_df,'^EXECUTIVE$',"eXECS")
-clustered_df <- cluster_jobs(clustered_df,'^EXECUTIVE OFFICER',"C LEVEL_eXECS")
-clustered_df <- cluster_jobs(clustered_df,'EXECUTIVE VICE PRESIDENT',"C LEVEL_eXECS")
-clustered_df <- cluster_jobs(clustered_df,'MANAGING DIRECTOR',"C LEVEL_eXECS")
-clustered_df <- cluster_jobs(clustered_df,'SVP',"C LEVEL_eXECS")
-clustered_df <- cluster_jobs(clustered_df,'^PRESIDENT\\b',"CEO")
-clustered_df <- cluster_jobs(clustered_df,'^FOUNDER\\b','CEO')
-clustered_df <- cluster_jobs(clustered_df,'EXECUTIVE DIRECTOR','CEO')
-clustered_df <- cluster_jobs(clustered_df,'FINANCIAL DIRECTOR','C LEVEL_eXECS')
-clustered_df <- cluster_jobs(clustered_df,'EXECUTIVE RECRUITER','rECRUITER')
-clustered_df <- cluster_jobs(clustered_df,'EXECUTIVE SEARCH','rECRUITER')
-clustered_df <- cluster_jobs(clustered_df,'EXECUTIVE ASSISTANT','EX aSSISTANT')
-clustered_df <- cluster_jobs(clustered_df,'EXECUTIVE ADMINISTRATOR','EX aSSISTANT')
-clustered_df <- cluster_jobs(clustered_df,'EXECUTIVE COORDINATOR','EX aSSISTANT')
-clustered_df <- cluster_jobs(clustered_df,'CORPORATE EXECUTIVE','C LEVEL_eXECS')
-clustered_df <- cluster_jobs(clustered_df,'EXECUTIVE$','eXECS')
-clustered_df <- cluster_jobs(clustered_df,'^VP','Vp roles')
-clustered_df <- cluster_jobs(clustered_df,'SVP',"C LEVEL_eXECS")
-clustered_df <- cluster_jobs(clustered_df,'EXEC.*DIR','CEO')
-clustered_df <- cluster_jobs(clustered_df,'VP\\b','Vp roles')
-clustered_df <- cluster_jobs(clustered_df,'VICE PRESIDENT','Vp roles')
-clustered_df <- cluster_jobs(clustered_df,'^DIRECTOR','eXECS')
-clustered_df <- cluster_jobs(clustered_df,'^PARTNER','eXECS')
+clustered_df <- cluster_jobs(clustered_df,'EXECUTIVE ASSISTANT|EXEC. A|EXECUTIVE ASSITANT|EXEC ASST|EXECUTIVE ADMINISTRATOR|EXECUTIVE COORDINATOR|EXECUTIVEASSISTANT','EX aSSISTANT')
+clustered_df <- cluster_jobs(clustered_df,"CHIEF EXECUTIVE OFFICER|MANAGING PARTNER|EXECUTIVE DIRECTOR|^PRESIDENT\\b|^FOUNDER\\b|EXEC.*DIR","CEO")
+#clustered_df <- cluster_jobs(clustered_df,'^PRESIDENT\\b|^FOUNDER\\b|EXEC.*DIR',"CEO")
+clustered_df <- cluster_jobs(clustered_df,'CHIEF \\w* OFFICER|^C[A-D|F-Z]O\\b|/C[A-D|F-Z]O\\b|^EXECUTIVE OFFICER',"ClEVEL_eXECS")
+clustered_df <- cluster_jobs(clustered_df,'EXECUTIVE VICE PRESIDENT|FINANCIAL DIRECTOR|CORPORATE EXECUTIVE|SVP|EXECUTIVE VP|EVP|MANAGING DIRECTOR|CHAIRMAN|CORPORATE OFFICER|COO$','ClEVEL_eXECS')
+clustered_df <- cluster_jobs(clustered_df,'^EXECUTIVE$|EXEC|EXECUTIVE$|^PARTNER|^DIRECTOR|MANAGING|CHAIR OF| CHAIR|BOARD |CO-C',"eXECS")
+clustered_df <- cluster_jobs(clustered_df,'^VP|VP\\b|VICE PRESIDENT','Vp roles')
+
+
+## RANDOM EXCLUSIONS
+clustered_df <- cluster_jobs(clustered_df,"CHRISTIAN|^MINISTER|RABBI|PRIEST|CHAPLAIN|PARISH|CLERGY|BISHOP|PASTOR",'rELIOGOUS')
 
 ## LEGAL
-clustered_df <- cluster_jobs(clustered_df,'LAWYER|ATTORNEY','ATTORNEY')
+clustered_df <- cluster_jobs(clustered_df,'LAWYER|ATTORNEY|GENERAL COUNSEL|COUNSEL$|PROSECUTOR|ARBITRAT','aTTORNEY')
+clustered_df <- cluster_jobs(clustered_df,'LEGAL|JUDGE|CRIMINAL|COURT','lEGALfIELD')
+
+## IT JOBS
+clustered_df <- cluster_jobs(clustered_df,"SOFTWARE|FULL STACK DESIGNER|PROGRAMMER|DATA|TECHNOLOGY|SYSTEMS|DBA|COMPUTER|CYBER|INFORMATION|NETWORK|TECH|UX|GRAPHIC|I\\.T\\.|^IT|^WEB",'ItFIELD')
+
+
 
 ## Academia
-clustered_df <- cluster_jobs(clustered_df,'PROFESSOR|TEACHER|SCHOLAR|LECTURER|DOCTORAL|INSTRUCTOR','ACADEMIA')
-clustered_df <- cluster_jobs(clustered_df,'EDUC','ACADEMIA')
-clustered_df <- cluster_jobs(clustered_df,'STUDENT','STUDENT')
-clustered_df <- cluster_jobs(clustered_df,'LIBRAR','LIBRARIAN')
+
+clustered_df <- cluster_jobs(clustered_df,'PROFESSOR|TEACHER|SCHOLAR|LECTURER|DOCTORAL|INSTRUCTOR|ECONOMIST|EDUC|DEAN|TUTOR|RESEARCH','aCADEMIA')
+clustered_df <- cluster_jobs(clustered_df,'STUDENT','sTUDENT')
+clustered_df <- cluster_jobs(clustered_df,'LIBRAR','lIBRARIAN')
+clustered_df <- cluster_jobs(clustered_df,'ACADEMIC|COLLEGE|SCHOOL|HIGHER ED|MATH|^PRINCIPAL$','aCADEMIA') 
 ## Unemployed self employed
-clustered_df <- cluster_jobs(clustered_df,'^SELF','SELF EMPLOYED')
-clustered_df <- cluster_jobs(clustered_df,'^NOT-EMPLOYED$','NOT EMPLOYED')
-## IT JOBS
-clustered_df <- cluster_jobs(clustered_df,'^SOFTWARE','It FIELD')
-clustered_df <- cluster_jobs(clustered_df,'PROGRAMMER','It FIELD')
-clustered_df <- cluster_jobs(clustered_df,'^IT','It FIELD')
-clustered_df <- cluster_jobs(clustered_df,'^WEB','It FIELD')
+clustered_df <- cluster_jobs(clustered_df,'^SELF','sELF eMPLOYED')
+clustered_df <- cluster_jobs(clustered_df,'^NOT-EMPLOYED$','nOT eMPLOYED')
+
+
 ## CREATIVE 
-clustered_df <- cluster_jobs(clustered_df,'DESIGNER|ARTIST|MUSICIAN|FILM|CREATIVE|PHOTO|EDITOR|WRITER','CREATIVE')
-clustered_df <- cluster_jobs(clustered_df,'^(AUTHOR|ACTOR|ACTRESS)','CREATIVE')
+clustered_df <- cluster_jobs(clustered_df,'DESIGNER|ARTIST|MUSICIAN|FILM|CREATIVE|PHOTO|EDITOR|WRITER|PUBLISHER|AUTHOR|GRAPHICS|JOURNALIST|SCULPTOR|ART |CARTOON|^ART|PUBLIC RELATIONS|PUBLICIST|TELEVISION|DESIGN|COMPOSER|MUSIC|DESIGN|DIGITAL MEDIA|DANCE|SINGER|NOVEL|BLOG','mEDIA/cREATIVE')
+clustered_df <- cluster_jobs(clustered_df,'^(AUTHOR|ACTOR|ACTRESS)','mEDIA/cREATIVE')
+clustered_df <- cluster_jobs(clustered_df,"TALENT|PRODUCER|SOCIAL MEDIA ",'mEDIA/cREATIVE')
+clustered_df <- cluster_jobs(clustered_df,"ACTIVIST|ENVIRONMEN",'aCTIVIST')
+
+
 ## FINANCIAL JOBS
-clustered_df <- cluster_jobs(clustered_df,'^(FINANCIAL|INVESTOR|INVESTMENT|CAPITAL|ENTREPRENEUR|FINANCE)','FINANCIAL SECTOR')
-## MILITARY AND LAW ENFORCEMENT
-clustered_df <- cluster_jobs(clustered_df,'MILITARY|ARMY|LAW ENFORCEMENT|FIRE','LAW ENFORCEMENT')
+clustered_df <- cluster_jobs(clustered_df,'^(FINANCIAL|INVESTOR|INVESTMENT|CAPITAL|ENTREPRENEUR|FINANCE|INVESTOR$|FINANCIAL|INVESTOR|BANKING)','fINANCIAL sECTOR')
+clustered_df <- cluster_jobs(clustered_df,'^VENTURE|EQUITY|HEDGE|QUANTITATIVE','fINANCIAL sECTOR')
+clustered_df <- cluster_jobs(clustered_df,"ACCOUNT |ACCOUNTS |COMPLIANCE|AUDIT|ACTUARY|FRAUD|ESTIM|SURVEYOR",'aCCOUNT sPECIALISTS')
+
+
 ## Labor 
-clustered_df <- cluster_jobs(clustered_df,'^(PIPE|STEAM|ELECTR|UNION)','LABORER')
-clustered_df <- cluster_jobs(clustered_df,'^(TRUCK|DRIVER)','DRIVER')
-clustered_df <- cluster_jobs(clustered_df,'CONTRACTOR','CONTRACTOR')
+clustered_df <- cluster_jobs(clustered_df,'^(PIPE|STEAM|ELECTR|UNION|CARPENTER|MECHANIC|WELDER|UNION)','bLUECOLLAR')
+clustered_df <- cluster_jobs(clustered_df,'LABOR|CONSTRUCTION|ELECTRICIAN|PLUMBER|PIPEFITTER|MACHINIST|WOOD|WELDERFISHER|PAINT','bLUECOLLAR')
+clustered_df <- cluster_jobs(clustered_df,'^(TRUCK|DRIVER)|DRIVER|TRUCK|DELVIERY|UPS|FEDEX|RIDESHARE','bLUECOLLAR')
+clustered_df <- cluster_jobs(clustered_df,'CONTRACTOR','cONTRACTOR')
+
 ## SCIENCE AND MEDICINE
-clustered_df <- cluster_jobs(clustered_df,'PHYSICIAN|MD|DOCTOR','PHYSICIAN')
-clustered_df <- cluster_jobs(clustered_df,'SCIENTIST|PHYSICIST|CHEMIST','SCIENTIST')
-clustered_df <- cluster_jobs(clustered_df,'PSY|SOCIAL WORKER|SOCIAL WORK','MENTAL HEALTH')
-clustered_df <- cluster_jobs(clustered_df,'^RN$','RN/Nurse')
-clustered_df <- cluster_jobs(clustered_df,'NURSE','RN/Nurse')
+clustered_df <- cluster_jobs(clustered_df,'PHYSICIAN|MD|M\\.D\\.|CHIROPRACTOR|DOCTOR|VETERI|DENTIST|SURGEON|PEDIATRICIAN|TRIST$|SCIENTIST|PHYSICIST|CHEMIST|LAB|LABORATORY|LABOROATORY|SCIENCE|BIOLOGIST|GEOLOGIST|STATISTICIAN|OLOGIST|ICIAN$','sCIENTIST/pHYSICIAN')
+clustered_df <- cluster_jobs(clustered_df,'PSY|SOCIAL WORKER|SOCIAL WORK|FAMILY THERAPIST|CASEWORKER','mENTAL hEALTH')
+clustered_df <- cluster_jobs(clustered_df,'^RN$|APRN|CRNA|NURSE|CAREGIVER|DAYCARE|HOMECARE|CHILDCARE|CHILD CARE|HOME CARE|CARETAKER|\\WCARE\\W|CARE PROVIDER','rN/nurse/cAREGIVER')
+clustered_df <- cluster_jobs(clustered_df,'MASSAGE|OCCUPATIONAL|PHYSICAL THERAPY|PHYSICAL THERAPIST|ACUPUNCTURIST|LMT','iNJURY_RECOVERY')
+clustered_df <- cluster_jobs(clustered_df,'PHARMA','pHARMA')
+clustered_df <- cluster_jobs(clustered_df,'MEDICAL|PARAMEDICAL|MEDICINE|DENTAL|PARAMEDIC','mEDICAL')
+
 ## SKILLED LABOR
-clustered_df <- cluster_jobs(clustered_df,'ANALYST|ENGINEER|ARCHITECT','ANALYST/ENGINEER/ARCHITECT')
-clustered_df <- cluster_jobs(clustered_df,'CPA|ACCOUNTANT|ACCOUNTING|BOOKKEEPER','ACCOUNTANT')
+clustered_df <- cluster_jobs(clustered_df,'ANALYST|ENGINEER|ARCHITECT','wHITE_COLLAR')
+clustered_df <- cluster_jobs(clustered_df,'CPA|ACCOUNTANT|ACCOUNTING|BOOKKEEPER|TAX','wHITE_COLLAR')
 ## Real estate
-clustered_df <- cluster_jobs(clustered_df,'REALTOR|REAL ESTATE','REAL ESTATE')
+clustered_df <- cluster_jobs(clustered_df,'REALTOR|REAL ESTATE','rEAL ESTATE')
 
 ## Secretary
-clustered_df <- cluster_jobs(clustered_df,'SECRETARY','SECRETARY')
-clustered_df <- cluster_jobs(clustered_df,'\\w ASSISTANT','SECRETARY')
+clustered_df <- cluster_jobs(clustered_df,'SECRETARY|RECEPTIONIST','sECRETARY')
+clustered_df <- cluster_jobs(clustered_df,'\\w ASSISTANT|ASSISTANT$','sECRETARY')
+clustered_df <- cluster_jobs(clustered_df,'RESOURCES|HR|CAREER|VOCATION','hr_cAREER_sERVICES')
+
+## MILITARY AND LAW ENFORCEMENT SECURITY
+clustered_df <- cluster_jobs(clustered_df,'MILITARY|ARMY|SOLDIER|LAW ENFORCEMENT|FIRE|SECURITY|POLICE','lAW eNFORCEMENT')
+
+
+clustered_df <- cluster_jobs(clustered_df,"^BAKER|COOK|CHEF|DISH|WAITER|WAITRESS|BARTENDER|RESTAURANT|BARISTA|BAR\\W|BARBACK",'rESTURANT')
+clustered_df <- cluster_jobs(clustered_df,"RETIRE",'rETIRED')
+clustered_df <- cluster_jobs(clustered_df,"BANKER|MORTG",'bANKER')
+clustered_df <- cluster_jobs(clustered_df,"CONSULTANT",'cONSULTANT')
+clustered_df <- cluster_jobs(clustered_df,"SALES",'sALES')
+clustered_df <- cluster_jobs(clustered_df,"OWNER",'bUSINESSoWNER')
+clustered_df <- cluster_jobs(clustered_df,"MANAGER",'mANAGERS')
+clustered_df <- cluster_jobs(clustered_df,"ADMINISTRATOR",'aDMINISTRATORS')
+clustered_df <- cluster_jobs(clustered_df,"HEALTH",'hEALTHcARE')
+clustered_df <- cluster_jobs(clustered_df,"FARM",'fARMER')
+clustered_df <- cluster_jobs(clustered_df,"PILOT",'pILOTS')
+clustered_df <- cluster_jobs(clustered_df,"MARKETING",'mARKETING')
+clustered_df <- cluster_jobs(clustered_df,"MARKETING",'mARKETING')
+clustered_df <- cluster_jobs(clustered_df,"PROFIT|FOUNDATION|CHARITY",'nONPROFIT')
+clustered_df <- cluster_jobs(clustered_df,"MANAGEMENT",'mANAGEMENT')
+clustered_df <- cluster_jobs(clustered_df,"NONE",'NOT EMPLOYED')
+clustered_df <- cluster_jobs(clustered_df,"RETAIL|CASHIER",'rETAILER')
+clustered_df <- cluster_jobs(clustered_df,"RESEARCHER",'aCADEMIA')
+clustered_df <- cluster_jobs(clustered_df,"ADVERTISING|RAISING|FUNDRAISE",'aDVERTISING')
+clustered_df <- cluster_jobs(clustered_df,"VOLUNTEER",'VOLUNTEER')
+clustered_df <- cluster_jobs(clustered_df,"CUSTOMER SERVICE|CUSTOMER CARE",'CUSTOMER SERVICE')
+clustered_df <- cluster_jobs(clustered_df,"BUSINESS|ENTREPRENEUR",'bUSINESS_sERVICES')
+clustered_df <- cluster_jobs(clustered_df,"ENVIRONMEN|ORGANIZER",'aCTIVISTS/oRGANIZER')
+clustered_df <- cluster_jobs(clustered_df,"POLICY|PUBLIC|GOVERNMENT|GOVT|FEDERAL EMPLOYEE|COUNCIL|LEGISLAT|DIPLO",'pUBLICpOLICY')
+clustered_df <- cluster_jobs(clustered_df,'FOUNDER','CEO')
+clustered_df <- cluster_jobs(clustered_df,'VEND','vENDOR')
+clustered_df <- cluster_jobs(clustered_df,'DOG|ANIMAL|HORSE|PET CARE|PET-CARE','aNIMALS_sERVICES')
+clustered_df <- cluster_jobs(clustered_df,'FITNESS|PERSONAL TRAINER|STRENGTH|ATHLETIC','fITNESS_tRAINER')
+clustered_df <- cluster_jobs(clustered_df,'DISPATCH','dISPATCHER')
+clustered_df <- cluster_jobs(clustered_df,'SUPERVISOR','sUPERVISOR')
+clustered_df <- cluster_jobs(clustered_df,'INSURANCE','iNSURANCEfIELD')
+clustered_df <- cluster_jobs(clustered_df,'DRESSER|^HAIR|COLORIST','sTYLIST')
+clustered_df <- cluster_jobs(clustered_df,'COMMUNICATIONS','cOMMUNICATIONS')
+clustered_df <- cluster_jobs(clustered_df,'CLERK','cLERKS')
+clustered_df <- cluster_jobs(clustered_df,'LINGUIST|INTERPRET|TRANSLAT','lANGUAGE')
+clustered_df <- cluster_jobs(clustered_df,'INVESTIGATOR','iNVESTIGATOR')
+clustered_df <- cluster_jobs(clustered_df,'JANITOR|CUSTODIAN','jANITOR')
+clustered_df <- cluster_jobs(clustered_df,'OFFICE','oFFICEjOBS')
+clustered_df <- cluster_jobs(clustered_df,'[A-Z]*MAN$','bLUECOLLAR')
+```
+
+```{r}
+
+# One layer more abstract job titles
+clustered_df$industry_cluster <- clustered_df$clustered_jobs
+clustered_df <- industry_level_cluster_jobs(clustered_df,'^VP|VP\\b|VICE PRESIDENT','Vp roles')
+
+
+
+
+
+
+sort(table(clustered_df$clustered_jobs[str_detect(clustered_df$clustered_jobs,"^BAKER|COOK|CHEF|DISH|WAITER|WAITRESS|BARTENDER|RESTAURANT|")]) ,decreasing = TRUE)
+
+#[A-Z]*MAN$
+sort(table(clustered_df$clustered_jobs[str_detect(clustered_df$clustered_jobs,"MORTG")]) ,decreasing = TRUE)
 ```
 
 
+```{r}
+sort(table(clustered_df$clustered_jobs),decreasing=TRUE)[1:100]
+
+sort(table(clustered_df$job_position[clustered_df$clustered_jobs=="hr"]),decreasing = TRUE)[1:100]
+```
 
 Above I printed out the top 20 uses of the term CEO, there are 128 combinations of the term CEO that show up and we now have gone from identifying 2902 CEO's to 3533, about a 20% increase.  The cool thing is, we can expand from here. Now  I add in similar terms like mentioned in introductory paragraph. In the end we now have 4459 repsondents that represent the actual role of CEO.  I expanded this clustering to create some other fields as well.  I bundled legal,heatlh, academic,blue collar jobs into their own aggregated categories. But for the purpose of this article, we will attempt to simply look at the CEO, execs, and c lvel execs.  To get an idea of what the rolls look like in each of these categories, lets print tables of each category, by original job title.
 
@@ -277,7 +354,7 @@ kable(new_tab_df,caption = 'Top 997 uses of C-level executive title with origina
 # #sort(table(clustered_df$clustered_jobs[str_detect(clustered_df$clustered_jobs,'(LEGAL)')]),decreasing=TRUE )
 # #sort(table(clustered_df$clustered_jobs[str_detect(clustered_df$clustered_jobs,'^(PIPE|STEAM|ELECTR|UNION)')]),decreasing=TRUE )
 # #sort(table(clustered_df$clustered_jobs[str_detect(clustered_df$clustered_jobs,'^(FINANCIAL|INVESTOR|INVESTMENT|CAPITAL|ENTREPRENEUR)')]),decreasing=TRUE )
-# clustered_df$clustered_jobs[str_detect(clustered_df$clustered_jobs,'EDITOR' )
+# clustered_df$clustered_jobs[str_detect(clustered_df$clustered_jobs,'EDITOR|PUBLISHER' )
 ```
 
 
@@ -334,8 +411,9 @@ geom_tile(aes(y =Money_Raised/2 ,
   geom_text(aes(y = Money_Raised, label = comm_id), vjust = -0.5) +
   # text in x-axis (requires clip = "off" in coord_cartesian)
   geom_text(aes(y = 0, label = comm_id), vjust = 2) +
+  ylab("Cumulative Sum of Contributions") +
   coord_cartesian(clip = "off", expand = FALSE) +
-  labs(title=paste(graph_title, '{closest_state}'), x = "") +
+  labs(title=paste("CUMULATIVE Contributions From ", graph_title, ' {closest_state}'), x = "") +
   theme(plot.title = element_text(hjust = 1, size = 22),
         axis.ticks.x = element_blank(),
         axis.text.x  = element_blank()) + 
@@ -343,9 +421,39 @@ geom_tile(aes(y =Money_Raised/2 ,
                     transition_length = 2, state_length = 1) 
 
 animate(my_animation, 200, fps = 10, duration = 10, width = 800, height = 600, renderer = gifski_renderer(paste(filename,".gif",sep=""),loop = F ))
+}
 
-animated_donation_by_job("CEO","my graph for CEO")
-animated_donation_by_job("ACADEMIA","Cumulative donations by donors working in Acedemics","academics",c("Bernie","Warren"))
+animated_donation_by_job("CEO","my graph for CEO","CEO")
+animated_donation_by_job(job_positions="ACADEMIA",graph_title= " Academics",filename="academics",filter_candidates=c("Bernie","Warren",'Buttigeg'))
+
+```
+
+
+
+```{r}
+sort(table(clustered_df$clustered_jobs),decreasing=TRUE) [1:100]
+
+
+cluster_jobs <- function(df,reg_express,replacement_val){    
+   
+    ## Populate new col with imputed value
+    df$clustered_jobs[str_detect(df$clustered_jobs,reg_express)] <- replacement_val
+    ## Build column to track if change was made to occupation 
+    df <- df %>% 
+            mutate(job_changed = ifelse(clustered_jobs == job_position,'0','1'))
+    return(df)
+}
+
+
+clustered_df$clustered_jobs[str_detect(clustered_df$clustered_jobs,"ACCOUNT ")]
+
+animated_donation_by_job(job_positions="aTTORNEY",graph_title="Attorneys",filename="Attorneys")
+animated_donation_by_job(job_positions="aCADEMIA",graph_title="ACADEMIA",filename="ACADEMIA")
+animated_donation_by_job(job_positions="ItFIELD",graph_title="ItFIELD",filename="ItFIELD")
+animated_donation_by_job(job_positions="aTTORNEY",graph_title="ItFIELD",filename="ItFIELD")
+animated_donation_by_job(job_positions="rETIRED",graph_title="rETIRED",filename="rETIRED")
+animated_donation_by_job(job_positions="mEDIA/cREATIVE",graph_title="creative white collar",filename="creativewhitecollar")
+animated_donation_by_job(job_positions="sCIENTIST/pHYSICIAN",graph_title="medical and science",filename="medicalscience")
 
 ```
 
