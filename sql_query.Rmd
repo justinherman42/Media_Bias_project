@@ -1,0 +1,154 @@
+---
+title: "Untitled"
+author: "Justin Herman"
+date: "8/16/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+
+
+
+```{r}
+library(httr)
+library(jsonlite)
+
+json_to_df <- function(tag)
+{
+    url <- paste("https://financialmodelingprep.com/api/v3/financials/balance-sheet-statement/",tag,"?period=quarter",sep="")
+    headers = c('Upgrade-Insecure-Requests' = '1')
+    params = list(`datatype` = 'json')
+    result <- GET(url = url, httr::add_headers(.headers=headers), query = params)
+    result<- rawToChar(result$content)
+    df <- as.data.frame(fromJSON(result)[2])
+    df$company <- tag
+    df$primarykey <- paste(df$financials.date,df$company,sep="-")
+    if (sum(is.na(df)) >0){
+        print("there were nulls in the dataset")
+    }
+    return(df)
+    }
+
+
+df<- json_to_df("AAPL")
+df_2 <- json_to_df("GOOGL")
+df_2
+
+# names(raw.result)
+# this.raw.content <- rawToChar(raw.result$content)
+# this.content <- fromJSON(this.raw.content)
+# this.content$financials
+# aa <- as.data.frame(this.content[2])
+# sum(is.null(aa))
+
+
+rmariadb.settingsfile<-"C:\\Users\\justin\\Desktop\\xmedia.cnf"
+    rmariadb.db<-"xmedia"
+    my_conn<-dbConnect(RMariaDB::MariaDB(),default.file=rmariadb.settingsfile,group=rmariadb.db) 
+    dbListTables(my_conn)
+
+dbWriteTable(my_conn, "New_table", df,overwrite =TRUE)
+dbWriteTable(my_conn,"New_table",df_2,append=TRUE)
+```
+
+
+```{r}
+#FB amazon
+top_5_companies <- c("MSFT","FB","AMZN","AAPL","GOOGL")
+library(RMariaDB)
+#mydb = dbConnect(RMariaDB::MariaDB(), user='root', password='Joia0341##', dbname='xmedia', host='127.0.0.1',port=3306)
+
+
+
+
+build_table <- function(tag){
+    ## import df from json api call function 
+    df <- json_to_df(tag)
+    ## grab credentials from credential file
+    db_credentials<-"C:\\Users\\justin\\Desktop\\xmedia.cnf"
+    my_sql_db<-"xmedia"
+    ## make connection
+    my_conn<-dbConnect(RMariaDB::MariaDB(),
+                       default.file=db_credentials,
+                       group=my_sql_db) 
+    ##build table from df
+    dbWriteTable(my_conn, value = df, 
+                 name = "New_table", 
+                 overwrite = TRUE,                         
+                 row.names = FALSE)
+res <- dbSendQuery(my_conn, "ALTER TABLE New_table
+                             ADD CONSTRAINT websites_pk
+                             PRIMARY KEY (`primarykey`(40)) ;")
+}
+
+
+build_table("MSFT")
+
+
+
+update_table <- function(tags){
+    for (tag in tags){
+    ## import df from json api call function 
+    df <- json_to_df(tag)
+    ## grab credentials from credential file
+    db_credentials<-"C:\\Users\\justin\\Desktop\\xmedia.cnf"
+    my_sql_db<-"xmedia"
+    ## make connection
+    my_conn<-dbConnect(RMariaDB::MariaDB(),
+                       default.file=db_credentials,
+                       group=my_sql_db) 
+    ## make sure data isn't duplicated by loading entire table into R DB(not big data solution)
+    table2df <- dbGetQuery(my_conn, "SELECT * FROM New_table")
+    stackeddf <- rbind(table2df, df)
+    finaldf <- unique(stackeddf)
+    
+    # OVERWRITE DESTINATION TABLE EACH TIME
+    dbWriteTable(my_conn, value = finaldf, 
+                      name = "New_table", 
+                      overwrite = TRUE,                         
+                      row.names = FALSE)
+    rm(table2df, stackeddf, finaldf)
+    gc()
+    dbDisconnect(my_conn)
+    print(paste("db was updated correctly with: ",tag ))
+    }
+}
+
+
+update_table(top_5_companies)
+
+
+
+
+
+##build primary key 
+res <- dbSendQuery(my_conn, "ALTER TABLE New_table
+                             ADD CONSTRAINT websites_pk
+                             PRIMARY KEY (`primarykey`(40)) ;")
+dbFetch(res)
+
+
+
+
+```
+
+
+
+
+
+
+```{r}
+print(dbGetQuery(my_conn, "Describe New_table;"))
+
+# Begin the query
+sql_qry <- "insert into cc_demo (Quarter,Vendor) VALUES"
+
+# Finish it with
+sql_qry <- paste0(sql_qry, paste(sprintf("('%s', '%s')", dd$Quarter, dd$Vendors), collapse = ","))
+```
+
