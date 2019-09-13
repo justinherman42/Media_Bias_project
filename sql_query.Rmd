@@ -14,30 +14,50 @@ knitr::opts_chunk$set(echo = TRUE)
 
 
 
-```{r}
+```{r,,echo=F,warning=F,message=F}
 library(httr)
 library(jsonlite)
+library(lubridate)
+library(tidyverse)
+library(RMariaDB)
+library(DT)
+library(knitr)
+library(kableExtra)
+#gsub("financials.|\\.","",".happy")
+
+
+
 
 json_to_df <- function(tag)
 {
-    url <- paste("https://financialmodelingprep.com/api/v3/financials/balance-sheet-statement/",tag,"?period=quarter",sep="")
+    url <- paste("https://financialmodelingprep.com/api/v3/financials/income-statement/",tag,"?period=quarter",sep="")
     headers = c('Upgrade-Insecure-Requests' = '1')
     params = list(`datatype` = 'json')
     result <- GET(url = url, httr::add_headers(.headers=headers), query = params)
     result<- rawToChar(result$content)
     df <- as.data.frame(fromJSON(result)[2])
+    colnames(df) <- gsub("financials.|\\.","",colnames(df))
+    df$report_date <- as.Date(df$date, '%Y-%m-%d')
+    df <-  df %>%
+        select(-date)
     df$company <- tag
-    df$primarykey <- paste(df$financials.date,df$company,sep="-")
+    df$primarykey <- paste(as.character(df$report_date),df$company,sep="-")
     if (sum(is.na(df)) >0){
         print("there were nulls in the dataset")
     }
+    cols.num <- colnames(df)[1:31]
+  #  print(colnames(df))
+ #   print(length(colnames(df)))
+    df[,cols.num] <- sapply(df[cols.num],as.numeric)
     return(df)
     }
 
+df
 
-df<- json_to_df("AAPL")
-df_2 <- json_to_df("GOOGL")
-df_2
+table(is.na(df))
+# df<- json_to_df("AAPL")
+# df_2 <- json_to_df("GOOGL")
+# df_2
 
 # names(raw.result)
 # this.raw.content <- rawToChar(raw.result$content)
@@ -52,15 +72,19 @@ rmariadb.settingsfile<-"C:\\Users\\justin\\Desktop\\xmedia.cnf"
     my_conn<-dbConnect(RMariaDB::MariaDB(),default.file=rmariadb.settingsfile,group=rmariadb.db) 
     dbListTables(my_conn)
 
-dbWriteTable(my_conn, "New_table", df,overwrite =TRUE)
-dbWriteTable(my_conn,"New_table",df_2,append=TRUE)
+    
+# dbWriteTable(my_conn, "New_table", df,overwrite =TRUE)
+# dbWriteTable(my_conn,"New_table",df_2,append=TRUE)
 ```
 
 
-```{r}
+```{r,,echo=F}
 #FB amazon
-top_5_companies <- c("MSFT","FB","AMZN","AAPL","GOOGL")
-library(RMariaDB)
+top_10_banks <- c("MSFT","FB","AMZN","AAPL","GOOGL")
+top_10_banks <- c('WFC', 'USB', 'PNC', 'BBT', 'STI', 'KEY', 'MTB', 'HBAN', 'ZION', 'CMA', 'FITB',"CFG","RF")
+
+
+
 #mydb = dbConnect(RMariaDB::MariaDB(), user='root', password='Joia0341##', dbname='xmedia', host='127.0.0.1',port=3306)
 
 
@@ -81,14 +105,16 @@ build_table <- function(tag){
                  name = "New_table", 
                  overwrite = TRUE,                         
                  row.names = FALSE)
-res <- dbSendQuery(my_conn, "ALTER TABLE New_table
+    res <- dbSendQuery(my_conn, "ALTER TABLE New_table
                              ADD CONSTRAINT websites_pk
                              PRIMARY KEY (`primarykey`(40)) ;")
+    dbClearResult(res)
+    dbDisconnect(my_conn)
 }
 
 
-build_table("MSFT")
-
+aaa <- build_table("MSFT")
+aaa
 
 
 update_table <- function(tags){
@@ -98,20 +124,26 @@ update_table <- function(tags){
     ## grab credentials from credential file
     db_credentials<-"C:\\Users\\justin\\Desktop\\xmedia.cnf"
     my_sql_db<-"xmedia"
+    
     ## make connection
     my_conn<-dbConnect(RMariaDB::MariaDB(),
                        default.file=db_credentials,
                        group=my_sql_db) 
     ## make sure data isn't duplicated by loading entire table into R DB(not big data solution)
     table2df <- dbGetQuery(my_conn, "SELECT * FROM New_table")
+    colnames(table2df) <- gsub("financials.","",colnames(table2df))
     stackeddf <- rbind(table2df, df)
     finaldf <- unique(stackeddf)
-    
+    #names(finaldf) <- substring(names(finaldf), 12)
     # OVERWRITE DESTINATION TABLE EACH TIME
     dbWriteTable(my_conn, value = finaldf, 
                       name = "New_table", 
                       overwrite = TRUE,                         
                       row.names = FALSE)
+    res <- dbSendQuery(my_conn, "ALTER TABLE New_table
+                             ADD CONSTRAINT websites_pk
+                             PRIMARY KEY (`primarykey`(40)) ;")
+    dbClearResult(res)
     rm(table2df, stackeddf, finaldf)
     gc()
     dbDisconnect(my_conn)
@@ -120,17 +152,7 @@ update_table <- function(tags){
 }
 
 
-update_table(top_5_companies)
-
-
-
-
-
-##build primary key 
-res <- dbSendQuery(my_conn, "ALTER TABLE New_table
-                             ADD CONSTRAINT websites_pk
-                             PRIMARY KEY (`primarykey`(40)) ;")
-dbFetch(res)
+update_table(top_10_banks)
 
 
 
@@ -142,13 +164,103 @@ dbFetch(res)
 
 
 
-```{r}
+```{r,echo=F}
 print(dbGetQuery(my_conn, "Describe New_table;"))
+res <- dbGetQuery(my_conn, "select * from New_table;")
+table(is.na(res))
 
-# Begin the query
-sql_qry <- "insert into cc_demo (Quarter,Vendor) VALUES"
 
-# Finish it with
-sql_qry <- paste0(sql_qry, paste(sprintf("('%s', '%s')", dd$Quarter, dd$Vendors), collapse = ","))
+
+
+db_credentials<-"C:\\Users\\justin\\Desktop\\xmedia.cnf"
+my_sql_db<-"xmedia"
+my_conn<-dbConnect(RMariaDB::MariaDB(),
+                   default.file=db_credentials,
+                   group=my_sql_db) 
+
+# res <- dbSendQuery(my_conn, "select * from New_table;")
+# my_new_df <- dbFetch(res)
+
+#aapl <- my_new_df %>% 
+#    filter(company=="AAPL")
+#plot(ts(aapl$financials.Cash.and.short.term.investments))
+
+# ff <- ts(df)
+# aapl$financials.date <- as.Date( aapl$financials.date , '%Y-%m-%d')
+# require(ggplot2)
+# ggplot( data = df, aes( financials.date, y=as.numeric(financials.Cash.and.short.term.investments ))) +
+#     geom_bar(stat="identity") + 
+#     geom_line()+
+#     theme(axis.text.x=element_text(angle=90,hjust=1))
+
+## maybe we want to see if short term debt in any quarter, is out of line with historical averages
+##build primary key 
+
+
+## build function to generalize a query call that gets year on quarterly growth in numeric column of choice
+build_yty_growth <- function(statistic){
+    my_conn<-dbConnect(RMariaDB::MariaDB(),
+                   default.file=db_credentials,
+                   group=my_sql_db) 
+       query <- paste("WITH last_year_debt  as (SELECT company,report_date,",statistic,", LAG(",statistic, ",4) Over( PARTITION BY company order by report_date)  last_year_",statistic," from New_table) Select company,report_date,",statistic, ",last_year_",statistic,", ROUND((last_year_",statistic,"-",statistic,")/last_year_",statistic,"*-1,3) as growth from last_year_debt;",sep="" )
+    print(query)
+    res <- dbSendQuery(my_conn,query)
+    my_df <- dbFetch(res)
+    datatable(my_df)
+}
+
+build_yty_growth("Revenue")
+build_yty_growth("RDExpenses")
+
+
+## build function to generalize a query call that takes year on quarterly growth and then ranks best quarterly growth   
+build_yty_growth <- function(statistic){
+    my_conn<-dbConnect(RMariaDB::MariaDB(),
+                   default.file=db_credentials,
+                   group=my_sql_db) 
+       query <- paste("WITH last_year_debt  as (SELECT company,report_date,",statistic,", LAG(",statistic, ",4) Over( PARTITION BY company order by report_date)  last_year_",statistic," from New_table) Select company,report_date,",statistic, ",last_year_",statistic,", ROUND((last_year_",statistic,"-",statistic,")/last_year_",statistic,"*-1,3) as growth from last_year_debt;",sep="" )
+    print(query)
+    res <- dbSendQuery(my_conn,query)
+    my_df <- dbFetch(res)
+    datatable(my_df)
+}
+
+
+   
+```
+
+```{r}
+## lets rank yearly earningsbfore tax 
+WITH rank_earnings AS(
+    SELECT company, YEAR(report_date) as yearly_earnings
+        
+            RANK() OVER (
+            PARTITION BY YEAR(company, yearly_earnings)
+            ORDER BY yearly_earnings DESC
+        ) order_value_rank
+    FROM
+        New_table
+)
+SELECT
+    *
+FROM
+    rank_earnings
+WHERE
+    order_value_rank <=3;
+    
+    
+    
+    
+    with rank_earnings AS ( SELECT company, YEAR(report_date) as yearly_earnings RANK() OVER (PARTITION BY YEAR(company, yearly_earnings) ORDER BY yearly_earnings DESC) order_value_rank FROM New_table) SELECT * FROM rank_earnings;
+
+WITH last_year_debt  as(SELECT company,report_date,Revenue, LAG(Revenue,4) Over( PARTITION BY company order by report_date)  last_year_Revenue from New_table) Select company,report_date,Revenue,last_year_Revenue, ROUND((last_year_Revenue-Revenue)/last_year_Revenue*-1,3) as growth from last_year_debt;
+
+
+WITH last_year_debt  as(SELECT company,report_date,Revenue, LAG(Revenue,4) Over( PARTITION BY company order by report_date)  last_year_Revenue from New_table), 
+ revenues as (Select company,report_date,Revenue,last_year_Revenue, ROUND((last_year_Revenue-Revenue)/last_year_Revenue*-1,3) as growth from last_year_debt)
+select *, (case when growth is not null then dense_rank() OVER ( order by growth desc) end) as ranked_growth from revenues;
+
+
+select unique
 ```
 

@@ -1,0 +1,112 @@
+---
+title: "Untitled"
+author: "Justin Herman"
+date: "8/15/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+
+```{r,echo=FALSE,message=FALSE}
+library(tidyverse)
+library(dplyr)
+library(readxl)
+library(knitr)
+library(kableExtra)
+library(xtable)
+library(lubridate)
+library(gganimate)
+
+## Functions for report 
+#Function take col and creates filtered cross tab of counts greater than 1
+# Idea here is to identify donors who donate to multiple candidates
+cross_tab_counts <- function(df,col){
+#    col <- get(col)
+#    print(col)
+    table1 <- sort(table(col))
+    my_names <- names(table1[table1>1])
+    new_df <- df %>% 
+    filter(col %in% my_names)
+    return(new_df)
+}
+
+## Function changes occupation based upon a regular expression. 
+## Creates column to note if change was made,stores old names, returns DF
+cluster_jobs <- function(df,reg_express,replacement_val){    
+   
+    ## Populate new col with imputed value
+    df$clustered_jobs[str_detect(df$clustered_jobs,reg_express)] <- replacement_val
+    ## Build column to track if change was made to occupation 
+    df <- df %>% 
+            mutate(job_changed = ifelse(clustered_jobs == job_position,'0','1'))
+    return(df)
+}
+
+
+industry_level_cluster_jobs <- function(df,reg_express,replacement_val){    
+   
+    ## Populate new col with imputed value
+    df$industry_cluster<- df$industry_cluster[str_detect(df$industry_cluster,reg_express)]<- replacement_val
+
+}
+
+## create list to import candidate level filenames
+list_csv <-c( paste(as.character(2:25),".csv", sep=""))
+old_df <-  as.data.frame(read.csv('FEC_Project/csv_files/1.csv'), stringsAsFactors = FALSE)
+
+## filter for only individual level donors
+old_df <- old_df %>% 
+  filter(X_ind=="IND")
+
+## Loop to join all FEC individual csv FEC files together 
+for (x in list_csv){
+  new_df <- as.data.frame(read.csv(paste('FEC_Project/csv_files/',x,sep='')), stringsAsFactors = FALSE)
+  new_df <- new_df %>% 
+    filter(X_ind=="IND")
+  old_df <- rbind(old_df,new_df)
+}
+
+## select columns we want, create date column, filter out salaries and other "donations"
+final_df <- old_df %>% 
+  filter(donation_to_date_total>0) %>% 
+  mutate(Date=as.Date(paste(substring(Date,1,4),substring(Date,5,6),substring(Date,7,8),sep="-")),
+         Contributor_name = paste(Name2,Name1,sep=" ")
+         ) %>% 
+  select(comm_id,Contributor_name,address,city,state,zipcode,Date,donation_amt,donation_to_date_total,unkown2,employer,job_position) 
+
+# final_df[1:10,]
+# sum(final_df$donation_amt)
+# 
+# final_df %>% 
+#   filter(comm_id=="Bernie")
+
+```
+
+```{r}
+
+```
+
