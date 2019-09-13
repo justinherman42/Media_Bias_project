@@ -392,6 +392,41 @@ colnames(new_tab_df) <- c("Different_C_level_Titles","Count")
 new_tab_df %>% 
   kable("html") %>% 
   kable_styling()  
+
+library(scales)
+all_Corporate <- clustered_df %>% 
+    filter(clustered_df$clustered_jobs%in% c('CEO','ClEVEL_eXECS','eXECS') )
+
+plot(density(log10(all_Corporate$donation_amt),na.rm=T))
+plot(density(log10(clustered_df$donation_amt),na.rm=T))
+
+ggplot(data = all_Corporate, aes(x=donation_amt))+
+  geom_density(fill='yellow') +
+  scale_x_continuous(trans = 'log10',
+                        breaks = trans_breaks('log10', function(x) 10^x),
+                        labels = trans_format('log10', math_format(10^.x)))+
+  # Change the fill colour to differentiate it
+  geom_density(data=clustered_df, fill="purple") +
+#  scale_y_continuous(trans = 'log10',
+#                        breaks = trans_breaks('log10', function(x) 10^x),
+#                        labels = trans_format('log10', math_format(10^.x)))+
+  labs(title = "Distribution of income for 2010")+
+  labs(y="Density")+
+  labs(x="donation amount")
+
+library(psych)
+rbind(describe(all_Corporate$donation_amt),describe(clustered_df$donation_amt))
+d
+
+
+orig_df <- final_df %>% 
+  filter(job_position=="CEO")
+comparison <- rbind(describe(orig_df$donation_amt),describe(all_ceo$donation_amt),describe(final_df$donation_amt))
+rownames(comparison) <- c("Original Data CEO Only","Clustered Data CEO Only","Full Dataset All Positions")
+comparison
+
+
+
 ```
 
 
@@ -460,11 +495,12 @@ geom_tile(aes(y =Money_Raised/2 ,
                 height = Money_Raised,
                 width = 0.9), alpha = 0.9) +
   geom_text(aes(y = Money_Raised, label = comm_id), vjust = -0.5) +
+   guides(fill=FALSE)+
   # text in x-axis (requires clip = "off" in coord_cartesian)
   geom_text(aes(y = 0, label = comm_id), vjust = 2) +
   ylab("Cumulative Sum of Contributions") +
   coord_cartesian(clip = "off", expand = FALSE) +
-  labs(title=paste("Cumulative Contributions from ", graph_title, ' {closest_state}'), x = "") +
+  labs(title=paste("Cumulative Contributions From ", graph_title, ' {closest_state}'), x = "") +
   theme(plot.title = element_text(hjust = 1, size = 22),
         axis.ticks.x = element_blank(),
         axis.text.x  = element_blank()) + 
@@ -475,7 +511,7 @@ animate(my_animation, 200, fps = 10, duration = 10, width = 800, height = 600, r
 }
 
 animated_donation_by_job("CEO","CEO's","CEO")
-animated_donation_by_job(c("CEO",'ClEVEL_eXECS',"eXECS"),"all executive positions ","all_execs")
+animated_donation_by_job(c("CEO",'ClEVEL_eXECS',"eXECS"),"All Executive Positions ","all_execs")
 
 #animated_donation_by_job(job_positions="aCADEMIA",graph_title= " Academics",filename="academics",filter_candidates=c("Bernie","Warren",'Buttigeg'))
 
@@ -502,7 +538,7 @@ cluster_jobs <- function(df,reg_express,replacement_val){
 # 
 animated_donation_by_job(job_positions="aTTORNEY",graph_title="Attorneys",filename="Attorneys")
 animated_donation_by_job(job_positions="aCADEMIA",graph_title="Academia",filename="ACADEMIA")
-animated_donation_by_job(job_positions="ItFIELD",graph_title="ItFIELD",filename="ItFIELD")
+animated_donation_by_job(job_positions="ItFIELD",graph_title="IT",filename="ItFIELD")
 animated_donation_by_job(job_positions="rETIRED",graph_title="Retired",filename="rETIRED")
 animated_donation_by_job(job_positions="mEDIA/cREATIVE",graph_title="creative white collar",filename="creativewhitecollar")
 animated_donation_by_job(job_positions="sCIENTIST/pHYSICIAN",graph_title="medical and science",filename="medicalscience")
