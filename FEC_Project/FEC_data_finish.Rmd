@@ -425,27 +425,7 @@ comparison
 
 ```
 
-##   Table to Track donations  {.tabset .tabset-fade}
 
-```{r,echo=False}
-##write files to disk
-#write.csv(clustered_df,'clustered_df.csv')
-
-total_donations <- table(clustered_df$comm_id)
-total_donations
-clustered_df$donation_amt
-total_raised <- clustered_df %>% 
-  group_by(comm_id) %>% 
-  summarise(`Total Raised`= sum(donation_amt),
-            `Average Raised`= mean(donation_amt)) %>% 
-  arrange(comm_id) %>% 
-  cbind(total_donations) %>% 
-  select(-Var1) %>% 
-  mutate(`Number of Individual Donations`=Freq) %>% 
-  select(-Freq) %>% 
-  arrange(-`Total Raised`)
-total_raised  
-```
 
 
 ```{r,echo=F}
@@ -716,7 +696,24 @@ clustered_df <- cluster_jobs(clustered_df,'INVESTIGATOR','iNVESTIGATOR')
 clustered_df <- cluster_jobs(clustered_df,'JANITOR|CUSTODIAN','jANITOR')
 clustered_df <- cluster_jobs(clustered_df,'OFFICE','oFFICEjOBS')
 clustered_df <- cluster_jobs(clustered_df,'[A-Z]*MAN$','bLUECOLLAR')
+
+
+##   Table to Track donations  {.tabset .tabset-fade}
+total_donations <- table(clustered_df$comm_id)
+total_raised <- clustered_df %>% 
+  group_by(comm_id) %>% 
+  summarise(`Total Raised`= sum(donation_amt),
+            `Average Raised`= mean(donation_amt)) %>% 
+  arrange(comm_id) %>% 
+  cbind(total_donations) %>% 
+  select(-Var1) %>% 
+  mutate(`Number of Individual Donations`=Freq) %>% 
+  select(-Freq) %>% 
+  arrange(-`Total Raised`)
+total_raised  
+
 ```
+
 
 
 
