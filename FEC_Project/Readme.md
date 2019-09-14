@@ -5,8 +5,8 @@ The FEC requires candidates file their contributions for the 2020 elections with
 
 for executed script please see [link](http://rpubs.com/justin_herman_42/528091)
 
+If you want to look at the clustered dataframe download clustered_df.csv file.  This file has all of the original FEC data with new columns identifying clustered jobs and a binary column telling the user if a job was clustered.  
 
-
-Example of animation
+Example of animation showing corporate Donations to candidates by time
 
 ![animation](https://github.com/justinherman42/Media_Bias_project/blob/master/FEC_Project/bar_races/all_execs.gif)
