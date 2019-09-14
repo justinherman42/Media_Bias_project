@@ -9,4 +9,4 @@ for executed script please see [link](http://rpubs.com/justin_herman_42/528091)
 
 Example of animation
 
-[animation](https://github.com/justinherman42/Media_Bias_project/blob/master/FEC_Project/bar_races/all_execs.gif)
+![animation](https://github.com/justinherman42/Media_Bias_project/blob/master/FEC_Project/bar_races/all_execs.gif)
