@@ -33,7 +33,6 @@ library(kableExtra)
 library(xtable)
 library(lubridate)
 library(gganimate)
-library(psych)
 ```
 
 
@@ -411,8 +410,9 @@ ggplot(data = all_Corporate, aes(x=donation_amt))+
   labs(y="Density")+
   labs(x="donation amount")
 
-
-
+library(psych)
+rbind(describe(all_Corporate$donation_amt),describe(clustered_df$donation_amt))
+d
 
 
 orig_df <- final_df %>% 
@@ -560,7 +560,7 @@ animated_donation_by_job(job_positions="rETIRED",graph_title="Retired",filename=
 animated_donation_by_job(job_positions="mEDIA/cREATIVE",graph_title="creative white collar",filename="creativewhitecollar")
 animated_donation_by_job(job_positions="sCIENTIST/pHYSICIAN",graph_title="medical and science",filename="medicalscience")
 animated_donation_by_job(job_positions="bLUECOLLAR",graph_title="Blue-collar",filename="Blue_collar")
-
+bLUECOLLAR
 ```
 
 
